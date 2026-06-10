@@ -1,0 +1,39 @@
+[package]
+name = "board-tools"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bevy = { version = "0.15", default-features = false, features = [
+    "bevy_core_pipeline",
+    "bevy_render",
+    "bevy_winit",
+    "bevy_asset",
+    "default_font",
+    "multi_threaded",
+    "bevy_color",
+] }
+bevy_egui = "0.31"
+serialport = "4"
+nusb = "0.1"
+crossbeam-channel = "0.5"
+tokio = { version = "1", features = ["rt-multi-thread", "net", "sync", "time", "io-util", "macros"] }
+rfd = "0.14"
+defmt-decoder = { version = "0.3", features = ["unstable"] }
+defmt-parser = { version = "=0.3.4", features = ["unstable"] }
+probe-rs = "0.31"
+flate2 = "1"
+tray-icon = "0.19"
+image = { version = "0.25", default-features = false, features = ["png"] }
+winit = "0.30"
+
+[build-dependencies]
+winresource = "0.1"
+image = { version = "0.25", default-features = false, features = ["png"] }
+
+# Speed up iterative dev builds
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3

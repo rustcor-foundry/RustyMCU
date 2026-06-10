@@ -1,0 +1,52 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    name: Build & Publish
+    runs-on: windows
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Toolchain identity
+        shell: pwsh
+        run: rustc --version; cargo --version
+
+      - name: Cargo build release
+        shell: pwsh
+        run: cargo build --release --jobs 80
+
+      - name: Publish Gitea release
+        shell: pwsh
+        env:
+          GITEA_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $tag     = "${{ github.ref_name }}"
+          $baseUrl = "https://github.com/rustcor-foundry/api/v1/repos/Paul/RustyMCU"
+          $headers = @{ Authorization = "token $env:GITEA_TOKEN" }
+
+          # Create the release record
+          $release = Invoke-RestMethod `
+            -Uri "$baseUrl/releases" `
+            -Method POST `
+            -Headers ($headers + @{ "Content-Type" = "application/json" }) `
+            -Body (@{ tag_name = $tag; name = "RustyMCU $tag"; draft = $false; prerelease = $false } | ConvertTo-Json) `
+            -SkipCertificateCheck
+
+          # Upload the EXE as a release asset
+          $assetName = "RustyMCU-$tag-windows-x86_64.exe"
+          Invoke-RestMethod `
+            -Uri "$baseUrl/releases/$($release.id)/assets?name=$assetName" `
+            -Method POST `
+            -Headers $headers `
+            -ContentType "application/octet-stream" `
+            -InFile "target\release\board-tools.exe" `
+            -SkipCertificateCheck
+
+          Write-Host "Release $tag published — $assetName uploaded"

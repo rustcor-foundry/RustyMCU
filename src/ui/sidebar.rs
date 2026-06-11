@@ -2,9 +2,7 @@ use bevy_egui::egui::{self, Color32, CursorIcon, Id, RichText, Stroke, Ui};
 use crate::plugins::network::NetworkState;
 use crate::plugins::serial::PortScanner;
 use crate::state::{ActiveTab, ConnectedDevices, LinkStatus};
-
-const GREEN: Color32 = Color32::from_rgb(99, 153, 34);
-const GRAY:  Color32 = Color32::from_rgb(136, 135, 128);
+use super::theme;
 
 pub fn draw(
     ui: &mut Ui,
@@ -17,20 +15,17 @@ pub fn draw(
     ui.add_space(14.0);
     ui.horizontal(|ui| {
         ui.add_space(16.0);
-        ui.vertical(|ui| {
-            ui.label(RichText::new("CH32V307").size(10.0).color(Color32::GRAY));
-            ui.label(RichText::new("board-tools").size(15.0).strong().monospace());
-        });
+        ui.label(RichText::new("Rusty").size(16.0).strong().monospace().color(theme::TEXT));
+        // Tight kerning between the two halves of the wordmark.
+        ui.add_space(-8.0);
+        ui.label(RichText::new("MCU").size(16.0).strong().monospace().color(theme::ACCENT));
     });
     ui.add_space(12.0);
     ui.separator();
     ui.add_space(10.0);
 
     // ── Interfaces ────────────────────────────────────────────────────────────
-    ui.horizontal(|ui| {
-        ui.add_space(16.0);
-        ui.label(RichText::new("INTERFACES").size(10.0).color(Color32::GRAY));
-    });
+    section_label(ui, "INTERFACES");
     ui.add_space(6.0);
 
     if let Some(probe) = &devices.debug_probe {
@@ -81,6 +76,17 @@ pub fn draw(
         }
     }
 
+    if devices.debug_probe.is_none()
+        && devices.serial.is_none()
+        && devices.ethernet.is_none()
+        && devices.usb_hs.is_none()
+    {
+        ui.horizontal(|ui| {
+            ui.add_space(16.0);
+            ui.label(RichText::new("no devices detected").size(11.0).italics().color(theme::TEXT3));
+        });
+    }
+
     // ── Chip info ─────────────────────────────────────────────────────────────
     if let Some(chip) = &devices.chip {
         ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
@@ -90,21 +96,28 @@ pub fn draw(
             ui.horizontal(|ui| {
                 ui.add_space(16.0);
                 ui.vertical(|ui| {
-                    ui.label(RichText::new("CHIP").size(10.0).color(Color32::GRAY));
+                    ui.label(RichText::new("CHIP").size(10.0).color(theme::TEXT3));
                     ui.add_space(4.0);
+                    ui.label(RichText::new(&chip.part).size(11.0).monospace().color(theme::TEXT2));
                     for line in [
-                        chip.part.as_str(),
                         chip.core.as_str(),
                         &format!("{}K flash · {}K RAM", chip.flash_kb, chip.ram_kb),
                         &format!("fw {}", chip.fw_version),
                     ] {
-                        ui.label(RichText::new(line).size(11.0).monospace().color(Color32::GRAY));
+                        ui.label(RichText::new(line).size(11.0).monospace().color(theme::TEXT3));
                     }
                     ui.add_space(8.0);
                 });
             });
         });
     }
+}
+
+fn section_label(ui: &mut Ui, text: &str) {
+    ui.horizontal(|ui| {
+        ui.add_space(16.0);
+        ui.label(RichText::new(text).size(10.0).color(theme::TEXT3));
+    });
 }
 
 // ── Card widget ───────────────────────────────────────────────────────────────
@@ -119,37 +132,39 @@ fn device_card(
     subtitle: &str,
     active: bool,
 ) -> bool {
-    let dot_color = if status.is_up() { GREEN } else { GRAY };
-
-    // Base border: thick + brighter when this card's tab is active.
-    let base_border = if active {
-        Stroke::new(1.5, Color32::from_gray(110))
+    let (fill, base_border) = if active {
+        (theme::BG3, Stroke::new(1.5, theme::ACCENT_DIM))
     } else {
-        Stroke::new(0.5, Color32::from_gray(55))
+        (theme::BG2, Stroke::new(1.0, theme::BORDER_LIGHT))
     };
 
     let inner = egui::Frame::none()
         .outer_margin(egui::Margin::symmetric(10.0, 0.0))
+        .fill(fill)
         .stroke(base_border)
-        .rounding(egui::Rounding::same(4.0))
+        .rounding(egui::Rounding::same(6.0))
         .inner_margin(egui::Margin::symmetric(10.0, 8.0))
         .show(ui, |ui| {
-            ui.set_min_width(160.0);
+            ui.set_min_width(168.0);
             ui.horizontal(|ui| {
-                // Status dot
+                // Status dot with phosphor glow when up.
                 let (rect, _) =
-                    ui.allocate_exact_size(egui::vec2(7.0, 14.0), egui::Sense::hover());
-                ui.painter().circle_filled(rect.center(), 3.5, dot_color);
+                    ui.allocate_exact_size(egui::vec2(9.0, 14.0), egui::Sense::hover());
+                if status.is_up() {
+                    ui.painter().circle_filled(
+                        rect.center(), 5.5,
+                        Color32::from_rgba_unmultiplied(0x00, 0xe8, 0x7a, 40),
+                    );
+                    ui.painter().circle_filled(rect.center(), 3.0, theme::ACCENT);
+                } else {
+                    ui.painter().circle_filled(rect.center(), 3.0, theme::TEXT3);
+                }
                 ui.add_space(4.0);
 
                 ui.vertical(|ui| {
-                    let name_color = if status.is_up() {
-                        Color32::from_gray(220)
-                    } else {
-                        Color32::from_gray(140)
-                    };
+                    let name_color = if status.is_up() { theme::TEXT } else { theme::TEXT3 };
                     ui.label(RichText::new(name).size(12.0).strong().monospace().color(name_color));
-                    ui.label(RichText::new(subtitle).size(11.0).color(Color32::GRAY));
+                    ui.label(RichText::new(subtitle).size(11.0).color(theme::TEXT3));
                 });
             });
         });
@@ -163,8 +178,8 @@ fn device_card(
     if resp.hovered() && !active {
         ui.painter().rect_stroke(
             inner.response.rect,
-            4.0,
-            Stroke::new(1.0, Color32::from_gray(85)),
+            6.0,
+            Stroke::new(1.0, theme::BORDER),
         );
     }
 

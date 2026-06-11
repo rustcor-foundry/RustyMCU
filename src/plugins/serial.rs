@@ -3,7 +3,7 @@ use crossbeam_channel::{bounded, Receiver, Sender};
 use std::io::Write;
 use std::time::Duration;
 use crate::plugins::defmt_decode::DefmtState;
-use crate::state::{ConnectedDevices, Encoding, LinkStatus, LogKind, LogLine, SerialBuffer, SerialInput};
+use crate::state::{ConnectedDevices, Encoding, LinkStatus, LogKind, LogLine, SerialBuffer, SerialDevInfo, SerialInput};
 
 // ── Channel types ─────────────────────────────────────────────────────────────
 
@@ -175,14 +175,16 @@ fn serial_thread(tx: Sender<SerialEvent>, rx: Receiver<SerialCommand>) {
 
 // ── Bevy system: drain channel, route per encoding ────────────────────────────
 
+#[allow(clippy::too_many_arguments)]
 pub fn poll_serial_events(
     channel: Res<SerialChannel>,
     mut buf: ResMut<SerialBuffer>,
     mut devices: ResMut<ConnectedDevices>,
+    scanner: Res<PortScanner>,
     input: Res<SerialInput>,
     mut defmt: ResMut<DefmtState>,
     time: Res<Time>,
-    mut line_acc: Local<String>, // persists between frames; replaces in-thread accumulator
+    mut line_acc: Local<String>,
 ) {
     let ms = time.elapsed().as_millis() as u64;
 
@@ -231,9 +233,20 @@ pub fn poll_serial_events(
             }
 
             SerialEvent::Connected(port) => {
-                if let Some(ref mut s) = devices.serial {
-                    s.status = LinkStatus::Connected;
-                    s.port = port.clone();
+                match &mut devices.serial {
+                    Some(s) => {
+                        s.port = port.clone();
+                        s.baud = scanner.baud;
+                        s.status = LinkStatus::Connected;
+                    }
+                    None => {
+                        devices.serial = Some(SerialDevInfo {
+                            port: port.clone(),
+                            baud: scanner.baud,
+                            framing: "8N1".into(),
+                            status: LinkStatus::Connected,
+                        });
+                    }
                 }
                 buf.push(LogLine {
                     timestamp_ms: ms,

@@ -14,6 +14,8 @@ const ICON_BYTES: &[u8] = include_bytes!("../RustyMCU-icon.png");
 
 fn main() {
     App::new()
+        // Matches theme::BG so resize/startup frames don't flash a mismatched color.
+        .insert_resource(ClearColor(Color::srgb_u8(0x06, 0x0b, 0x12)))
         .add_plugins(
             DefaultPlugins.set(WindowPlugin {
                 primary_window: Some(Window {

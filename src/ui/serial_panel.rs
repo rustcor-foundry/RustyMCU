@@ -1,13 +1,13 @@
-use bevy_egui::egui::{self, Color32, RichText, ScrollArea, Ui};
+use bevy_egui::egui::{self, RichText, ScrollArea, Ui};
 use crate::plugins::defmt_decode::DefmtState;
 use crate::plugins::serial::{SerialChannel, SerialCommand, PortScanner, COMMON_BAUDS};
 use crate::state::{ConnectedDevices, Encoding, LineEnding, LinkStatus, LogKind, LogLine, SerialBuffer, SerialInput};
-use super::export;
+use super::{export, theme};
 
-const COLOR_SYSTEM: Color32 = Color32::from_gray(110);
-const COLOR_INFO:   Color32 = Color32::from_gray(190);
-const COLOR_WARN:   Color32 = Color32::from_rgb(200, 130, 50);
-const COLOR_ERROR:  Color32 = Color32::from_rgb(200, 80, 80);
+const COLOR_SYSTEM: egui::Color32 = theme::TEXT3;
+const COLOR_INFO:   egui::Color32 = theme::TEXT2;
+const COLOR_WARN:   egui::Color32 = theme::WARN;
+const COLOR_ERROR:  egui::Color32 = theme::DANGER;
 
 pub fn draw(
     ui: &mut Ui,
@@ -43,7 +43,14 @@ pub fn draw(
             });
     }
 
-    egui::CentralPanel::default().show_inside(ui, |ui| {
+    // Terminal well — darkest surface, like a CRT phosphor screen.
+    egui::CentralPanel::default()
+        .frame(
+            egui::Frame::none()
+                .fill(theme::BG_DEEP)
+                .inner_margin(egui::Margin::symmetric(10.0, 6.0)),
+        )
+        .show_inside(ui, |ui| {
         let lines: Vec<&LogLine> = buf.filtered().collect();
         let total = buf.lines.len();
         let shown = lines.len();
@@ -64,7 +71,7 @@ pub fn draw(
                     ui.label(RichText::new(text).monospace().size(12.0).color(color));
                 }
                 if !buf.paused && buf.filter.is_empty() {
-                    ui.label(RichText::new("█").monospace().size(12.0).color(COLOR_SYSTEM));
+                    ui.label(RichText::new("█").monospace().size(12.0).color(theme::ACCENT));
                 }
             });
 
@@ -76,7 +83,7 @@ pub fn draw(
                         ui.add_space(6.0);
                         ui.label(
                             RichText::new(format!("showing {shown} / {total} lines"))
-                                .size(10.0).color(Color32::GRAY),
+                                .size(10.0).color(theme::TEXT3),
                         );
                     });
                 });
@@ -126,21 +133,21 @@ fn connect_bar(
         ui.separator();
 
         if connected {
-            if ui.button(RichText::new("Disconnect").color(COLOR_WARN)).clicked() {
+            if theme::danger_button(ui, "Disconnect").clicked() {
                 let _ = ch.tx.send(SerialCommand::Disconnect);
             }
         } else {
             ui.add_enabled_ui(!scanner.selected.is_empty(), |ui| {
-                if ui.button("Connect").clicked() {
+                if theme::accent_button(ui, "Connect").clicked() {
                     do_connect(scanner, ch, buf);
                 }
             });
         }
 
         let (badge, color) = if connected {
-            ("● connected", Color32::from_rgb(99, 153, 34))
+            ("● connected", theme::ACCENT)
         } else {
-            ("○ disconnected", Color32::GRAY)
+            ("○ disconnected", theme::TEXT3)
         };
         ui.label(RichText::new(badge).size(11.0).color(color));
     });
@@ -165,7 +172,7 @@ fn new_port_banner(
         ui.add_space(8.0);
         ui.label(
             RichText::new(format!("● New port {port} detected"))
-                .size(11.0).color(Color32::from_rgb(99, 153, 34)),
+                .size(11.0).color(theme::ACCENT),
         );
         if !connected && ui.small_button("Connect").clicked() {
             scanner.selected = port;
@@ -188,12 +195,12 @@ fn toolbar(ui: &mut Ui, buf: &mut SerialBuffer, input: &mut SerialInput, defmt: 
         ui.add_space(4.0);
         ui.label(
             RichText::new(format!("RX {}", fmt_bytes(buf.rx_bytes)))
-                .size(11.0).monospace().color(Color32::GRAY),
+                .size(11.0).monospace().color(theme::TEXT3),
         );
         ui.separator();
         ui.label(
             RichText::new(format!("TX {}", fmt_bytes(buf.tx_bytes)))
-                .size(11.0).monospace().color(Color32::GRAY),
+                .size(11.0).monospace().color(theme::TEXT3),
         );
         ui.add_space(4.0);
 
@@ -204,7 +211,7 @@ fn toolbar(ui: &mut Ui, buf: &mut SerialBuffer, input: &mut SerialInput, defmt: 
         ui.separator();
 
         // Timestamp toggle
-        let ts_color = if buf.show_timestamps { Color32::from_rgb(99, 153, 34) } else { Color32::GRAY };
+        let ts_color = if buf.show_timestamps { theme::ACCENT } else { theme::TEXT3 };
         if ui.add(egui::Button::new(RichText::new("⏱").color(ts_color)))
             .on_hover_text("Toggle timestamps").clicked()
         {
@@ -212,7 +219,7 @@ fn toolbar(ui: &mut Ui, buf: &mut SerialBuffer, input: &mut SerialInput, defmt: 
         }
 
         // Hex view toggle
-        let hex_color = if buf.hex_view { Color32::from_rgb(80, 140, 220) } else { Color32::GRAY };
+        let hex_color = if buf.hex_view { theme::INFO } else { theme::TEXT3 };
         if ui.add(egui::Button::new(RichText::new("🔣").color(hex_color)))
             .on_hover_text("Hex dump view").clicked()
         {
@@ -223,9 +230,9 @@ fn toolbar(ui: &mut Ui, buf: &mut SerialBuffer, input: &mut SerialInput, defmt: 
         if matches!(input.encoding, Encoding::Defmt) {
             ui.separator();
             let (label, color) = if defmt.status.is_ready() {
-                ("defmt ✓", Color32::from_rgb(99, 153, 34))
+                ("defmt ✓", theme::ACCENT)
             } else {
-                ("defmt: load ELF in Flash tab", Color32::from_rgb(200, 130, 50))
+                ("defmt: load ELF in Flash tab", theme::WARN)
             };
             ui.label(RichText::new(label).size(11.0).color(color))
                 .on_hover_text(defmt.status.label());
@@ -257,7 +264,7 @@ fn toolbar(ui: &mut Ui, buf: &mut SerialBuffer, input: &mut SerialInput, defmt: 
 fn send_bar(ui: &mut Ui, buf: &mut SerialBuffer, input: &mut SerialInput, ch: &SerialChannel) {
     ui.add_space(4.0);
     ui.horizontal(|ui| {
-        ui.label(RichText::new("›").size(14.0).monospace().color(Color32::GRAY));
+        ui.label(RichText::new("›").size(14.0).monospace().color(theme::ACCENT));
 
         let resp = ui.add(
             egui::TextEdit::singleline(&mut input.text)
@@ -285,7 +292,7 @@ fn send_bar(ui: &mut Ui, buf: &mut SerialBuffer, input: &mut SerialInput, ch: &S
                 }
             });
 
-        let send_clicked = ui.button("Send").clicked();
+        let send_clicked = theme::accent_button(ui, "Send").clicked();
         let enter_pressed = resp.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
         if send_clicked || enter_pressed {
             send_bytes(input, buf, ch);
@@ -324,7 +331,7 @@ fn send_bytes(input: &mut SerialInput, buf: &mut SerialBuffer, ch: &SerialChanne
     input.text.clear();
 }
 
-fn line_color(kind: &LogKind) -> Color32 {
+fn line_color(kind: &LogKind) -> egui::Color32 {
     match kind {
         LogKind::System => COLOR_SYSTEM,
         LogKind::Info   => COLOR_INFO,

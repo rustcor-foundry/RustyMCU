@@ -1,12 +1,25 @@
 use bevy_egui::egui::{self, Color32, ProgressBar, RichText, ScrollArea, Ui};
 use crate::plugins::flash::{DiskChannel, DiskCommand, FlashFile, FlashMode, FlashOp, FlashState, ProbeChannel, ProbeCommand};
 use crate::state::LogKind;
-use super::export;
+use super::{export, theme};
 
-const GREEN:  Color32 = Color32::from_rgb(99, 153, 34);
-const ORANGE: Color32 = Color32::from_rgb(200, 130, 50);
-const RED:    Color32 = Color32::from_rgb(200, 80, 80);
-const GRAY:   Color32 = Color32::GRAY;
+const GREEN:  Color32 = theme::ACCENT;
+const ORANGE: Color32 = theme::WARN;
+const RED:    Color32 = theme::DANGER;
+const GRAY:   Color32 = theme::TEXT3;
+
+/// Stage → progress bar color, using the Fathom semantic palette.
+fn op_color(op: &FlashOp) -> Color32 {
+    match op {
+        FlashOp::Erasing     => theme::WARN,
+        FlashOp::Programming => theme::INFO,
+        FlashOp::Verifying   => theme::ACCENT_DIM,
+        FlashOp::Writing     => theme::INFO,
+        FlashOp::Done        => theme::ACCENT,
+        FlashOp::Error(_)    => theme::DANGER,
+        FlashOp::Idle        => theme::TEXT3,
+    }
+}
 
 pub fn draw(
     ui: &mut Ui,
@@ -33,19 +46,25 @@ pub fn draw(
             });
             ui.separator();
             let row_h = ui.text_style_height(&egui::TextStyle::Monospace);
-            ScrollArea::vertical()
-                .auto_shrink([false; 2])
-                .stick_to_bottom(true)
-                .show_rows(ui, row_h, state.log.len(), |ui, range| {
-                    for line in &state.log[range] {
-                        let color = match line.kind {
-                            LogKind::Error  => RED,
-                            LogKind::Warn   => ORANGE,
-                            LogKind::System => Color32::from_gray(140),
-                            LogKind::Info   => Color32::from_gray(190),
-                        };
-                        ui.label(RichText::new(&line.text).monospace().size(11.0).color(color));
-                    }
+            egui::Frame::none()
+                .fill(theme::BG_DEEP)
+                .rounding(egui::Rounding::same(4.0))
+                .inner_margin(egui::Margin::symmetric(8.0, 4.0))
+                .show(ui, |ui| {
+                    ScrollArea::vertical()
+                        .auto_shrink([false; 2])
+                        .stick_to_bottom(true)
+                        .show_rows(ui, row_h, state.log.len(), |ui, range| {
+                            for line in &state.log[range] {
+                                let color = match line.kind {
+                                    LogKind::Error  => RED,
+                                    LogKind::Warn   => ORANGE,
+                                    LogKind::System => theme::TEXT3,
+                                    LogKind::Info   => theme::TEXT2,
+                                };
+                                ui.label(RichText::new(&line.text).monospace().size(11.0).color(color));
+                            }
+                        });
                 });
         });
 
@@ -78,7 +97,7 @@ pub fn draw(
                 ui.add_space(12.0);
                 ui.vertical(|ui| {
                     ui.set_min_width(ui.available_width() - 24.0);
-                    let color = state.op.progress_color();
+                    let color = op_color(&state.op);
 
                     ui.horizontal(|ui| {
                         ui.label(RichText::new(state.op.label()).size(12.0).color(color));
@@ -177,7 +196,7 @@ fn draw_probe_mode(
                 .desired_width(220.0)
                 .interactive(false)
                 .font(egui::TextStyle::Monospace)
-                .text_color(if state.probe_file.is_some() { Color32::from_gray(200) } else { GRAY }),
+                .text_color(if state.probe_file.is_some() { theme::TEXT } else { GRAY }),
         );
 
         ui.add_enabled_ui(!busy, |ui| {
@@ -222,7 +241,7 @@ fn draw_probe_mode(
         ui.add_space(12.0);
 
         ui.add_enabled_ui(can_flash, |ui| {
-            if ui.button(RichText::new("⚡ Flash + Verify").size(13.0)).clicked() {
+            if theme::accent_button(ui, "⚡ Flash + Verify").clicked() {
                 let f = state.probe_file.as_ref().unwrap();
                 let _ = probe_ch.tx.send(ProbeCommand::Flash {
                     probe_idx: state.probe_idx,
@@ -246,7 +265,7 @@ fn draw_probe_mode(
         });
 
         ui.add_enabled_ui(can_erase, |ui| {
-            if ui.button(RichText::new("🗑 Erase").size(13.0)).clicked() {
+            if theme::danger_button(ui, "🗑 Erase").clicked() {
                 let _ = probe_ch.tx.send(ProbeCommand::Erase {
                     probe_idx: state.probe_idx,
                     target: state.target.clone(),
@@ -254,7 +273,7 @@ fn draw_probe_mode(
             }
         });
 
-        if busy && ui.button(RichText::new("✕ Cancel").size(13.0).color(RED)).clicked() {
+        if busy && theme::danger_button(ui, "✕ Cancel").clicked() {
             state.cancel();
         }
     });
@@ -304,7 +323,7 @@ fn draw_disk_mode(
                 .desired_width(220.0)
                 .interactive(false)
                 .font(egui::TextStyle::Monospace)
-                .text_color(if state.disk_file.is_some() { Color32::from_gray(200) } else { GRAY }),
+                .text_color(if state.disk_file.is_some() { theme::TEXT } else { GRAY }),
         );
 
         ui.add_enabled_ui(!busy, |ui| {
@@ -363,14 +382,14 @@ fn draw_disk_mode(
         ui.add_space(12.0);
 
         ui.add_enabled_ui(can_write, |ui| {
-            if ui.button(RichText::new("↓ Write Image").size(13.0)).clicked() {
+            if theme::accent_button(ui, "↓ Write Image").clicked() {
                 let drive_path = state.drives[state.drive_idx].path.clone();
                 let image_path = state.disk_file.as_ref().unwrap().path.clone();
                 let _ = disk_ch.tx.send(DiskCommand::Write { drive_path, image_path });
             }
         });
 
-        if busy && ui.button(RichText::new("✕ Cancel").size(13.0).color(RED)).clicked() {
+        if busy && theme::danger_button(ui, "✕ Cancel").clicked() {
             state.cancel();
         }
     });

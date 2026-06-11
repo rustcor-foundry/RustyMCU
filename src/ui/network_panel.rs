@@ -1,11 +1,11 @@
-use bevy_egui::egui::{self, Color32, RichText, ScrollArea, Ui};
+use bevy_egui::egui::{self, RichText, ScrollArea, Ui};
 use crate::plugins::network::{NetworkState, TcpChannel, TcpCommand};
 use crate::state::LogKind;
+use super::theme;
 
-const COLOR_SYSTEM: Color32 = Color32::from_gray(110);
-const COLOR_INFO:   Color32 = Color32::from_gray(190);
-const COLOR_WARN:   Color32 = Color32::from_rgb(200, 130, 50);
-const COLOR_ERROR:  Color32 = Color32::from_rgb(200, 80, 80);
+const COLOR_SYSTEM: egui::Color32 = theme::TEXT3;
+const COLOR_INFO:   egui::Color32 = theme::TEXT2;
+const COLOR_ERROR:  egui::Color32 = theme::DANGER;
 
 pub fn draw(ui: &mut Ui, state: &mut NetworkState, ch: &TcpChannel) {
     // ── Bottom send bar ───────────────────────────────────────────────────────
@@ -23,7 +23,13 @@ pub fn draw(ui: &mut Ui, state: &mut NetworkState, ch: &TcpChannel) {
         });
 
     // ── Log terminal ──────────────────────────────────────────────────────────
-    egui::CentralPanel::default().show_inside(ui, |ui| {
+    egui::CentralPanel::default()
+        .frame(
+            egui::Frame::none()
+                .fill(theme::BG_DEEP)
+                .inner_margin(egui::Margin::symmetric(10.0, 6.0)),
+        )
+        .show_inside(ui, |ui| {
         let row_height = ui.text_style_height(&egui::TextStyle::Monospace);
 
         ScrollArea::vertical()
@@ -35,7 +41,7 @@ pub fn draw(ui: &mut Ui, state: &mut NetworkState, ch: &TcpChannel) {
                     ui.label(RichText::new(&line.text).monospace().size(12.0).color(color));
                 }
                 if !state.paused && state.connected {
-                    ui.label(RichText::new("█").monospace().size(12.0).color(COLOR_SYSTEM));
+                    ui.label(RichText::new("█").monospace().size(12.0).color(theme::ACCENT));
                 }
             });
     });
@@ -46,13 +52,14 @@ fn connect_bar(ui: &mut Ui, state: &mut NetworkState, ch: &TcpChannel) {
     ui.horizontal(|ui| {
         // Host input
         ui.add_enabled_ui(!state.connected, |ui| {
-            ui.label(RichText::new("Host").size(11.0).color(Color32::GRAY));
+            ui.label(RichText::new("Host").size(11.0).color(theme::TEXT3));
             ui.add(
                 egui::TextEdit::singleline(&mut state.host)
                     .desired_width(140.0)
+                    .hint_text("board IP or hostname")
                     .font(egui::TextStyle::Monospace),
             );
-            ui.label(RichText::new("Port").size(11.0).color(Color32::GRAY));
+            ui.label(RichText::new("Port").size(11.0).color(theme::TEXT3));
             ui.add(
                 egui::TextEdit::singleline(&mut state.port)
                     .desired_width(52.0)
@@ -63,17 +70,14 @@ fn connect_bar(ui: &mut Ui, state: &mut NetworkState, ch: &TcpChannel) {
         ui.separator();
 
         if state.connected {
-            if ui
-                .button(RichText::new("Disconnect").color(COLOR_WARN))
-                .clicked()
-            {
+            if theme::danger_button(ui, "Disconnect").clicked() {
                 let _ = ch.tx.send(TcpCommand::Disconnect);
             }
         } else {
             let port_ok = state.port.parse::<u16>().is_ok();
             let can_connect = !state.host.is_empty() && port_ok;
             ui.add_enabled_ui(can_connect, |ui| {
-                if ui.button("Connect").clicked() {
+                if theme::accent_button(ui, "Connect").clicked() {
                     if let Ok(port) = state.port.parse::<u16>() {
                         let _ = ch.tx.send(TcpCommand::Connect {
                             host: state.host.clone(),
@@ -88,9 +92,9 @@ fn connect_bar(ui: &mut Ui, state: &mut NetworkState, ch: &TcpChannel) {
         }
 
         let (badge, color) = if state.connected {
-            ("● connected", Color32::from_rgb(99, 153, 34))
+            ("● connected", theme::ACCENT)
         } else {
-            ("○ disconnected", Color32::GRAY)
+            ("○ disconnected", theme::TEXT3)
         };
         ui.label(RichText::new(badge).size(11.0).color(color));
     });
@@ -102,12 +106,12 @@ fn stats_toolbar(ui: &mut Ui, state: &mut NetworkState) {
         ui.add_space(4.0);
         ui.label(
             RichText::new(format!("RX {}", fmt_bytes(state.rx_bytes)))
-                .size(11.0).monospace().color(Color32::GRAY),
+                .size(11.0).monospace().color(theme::TEXT3),
         );
         ui.separator();
         ui.label(
             RichText::new(format!("TX {}", fmt_bytes(state.tx_bytes)))
-                .size(11.0).monospace().color(Color32::GRAY),
+                .size(11.0).monospace().color(theme::TEXT3),
         );
         ui.add_space(8.0);
         let pause_label = if state.paused { "▶ Resume" } else { "⏸ Pause" };
@@ -123,7 +127,7 @@ fn stats_toolbar(ui: &mut Ui, state: &mut NetworkState) {
 fn send_bar(ui: &mut Ui, state: &mut NetworkState, ch: &TcpChannel) {
     ui.add_space(4.0);
     ui.horizontal(|ui| {
-        ui.label(RichText::new("›").size(14.0).monospace().color(Color32::GRAY));
+        ui.label(RichText::new("›").size(14.0).monospace().color(theme::ACCENT));
 
         let resp = ui.add(
             egui::TextEdit::singleline(&mut state.input)
@@ -133,7 +137,10 @@ fn send_bar(ui: &mut Ui, state: &mut NetworkState, ch: &TcpChannel) {
                 .frame(false),
         );
 
-        let send_clicked = ui.add_enabled(state.connected, egui::Button::new("Send")).clicked();
+        let send_clicked = ui
+            .add_enabled_ui(state.connected, |ui| theme::accent_button(ui, "Send"))
+            .inner
+            .clicked();
         let enter_pressed = resp.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
 
         if (send_clicked || enter_pressed) && !state.input.is_empty() {
@@ -148,11 +155,11 @@ fn send_bar(ui: &mut Ui, state: &mut NetworkState, ch: &TcpChannel) {
     ui.add_space(4.0);
 }
 
-fn line_color(kind: &LogKind) -> Color32 {
+fn line_color(kind: &LogKind) -> egui::Color32 {
     match kind {
         LogKind::System => COLOR_SYSTEM,
         LogKind::Info   => COLOR_INFO,
-        LogKind::Warn   => COLOR_WARN,
+        LogKind::Warn   => theme::WARN,
         LogKind::Error  => COLOR_ERROR,
     }
 }

@@ -13,6 +13,7 @@ mod flash_panel;
 mod network_panel;
 mod serial_panel;
 mod sidebar;
+pub mod theme;
 mod usb_panel;
 
 pub struct UiPlugin;
@@ -42,11 +43,16 @@ fn draw_ui(
     defmt_state: Res<DefmtState>,
 ) {
     let ctx = ctx.ctx_mut();
-    apply_style(ctx);
+    theme::apply(ctx);
 
     egui::SidePanel::left("sidebar")
-        .exact_width(196.0)
+        .exact_width(210.0)
         .resizable(false)
+        .frame(
+            egui::Frame::none()
+                .fill(theme::BG2)
+                .stroke(egui::Stroke::new(1.0, theme::BORDER_LIGHT)),
+        )
         .show(ctx, |ui| {
             sidebar::draw(ui, &devices, &mut active_tab, &mut port_scanner, &mut net_state);
         });
@@ -75,6 +81,7 @@ fn draw_ui(
 fn tab_bar(ui: &mut egui::Ui, active: &mut ActiveTab) {
     ui.horizontal(|ui| {
         ui.set_min_height(36.0);
+        ui.add_space(8.0);
         tab_button(ui, active, ActiveTab::Serial,  "⌨ Serial");
         tab_button(ui, active, ActiveTab::Usb,     "⎇ USB");
         tab_button(ui, active, ActiveTab::Network, "⊞ Network");
@@ -84,28 +91,18 @@ fn tab_bar(ui: &mut egui::Ui, active: &mut ActiveTab) {
 
 fn tab_button(ui: &mut egui::Ui, active: &mut ActiveTab, tab: ActiveTab, label: &str) {
     let is_active = *active == tab;
-    let color = if is_active {
-        ui.visuals().text_color()
-    } else {
-        ui.visuals().weak_text_color()
-    };
-    let resp = ui.add(egui::Button::new(egui::RichText::new(label).color(color)).frame(false));
+    let color = if is_active { theme::TEXT } else { theme::TEXT3 };
+    let resp = ui.add(
+        egui::Button::new(egui::RichText::new(label).size(13.0).color(color)).frame(false),
+    );
     if resp.clicked() {
         *active = tab;
     }
     if is_active {
-        let y = resp.rect.max.y + 2.0;
+        let y = resp.rect.max.y + 3.0;
         ui.painter().line_segment(
             [egui::pos2(resp.rect.min.x, y), egui::pos2(resp.rect.max.x, y)],
-            egui::Stroke::new(2.0, ui.visuals().text_color()),
+            egui::Stroke::new(2.0, theme::ACCENT),
         );
     }
-}
-
-fn apply_style(ctx: &egui::Context) {
-    let mut style = (*ctx.style()).clone();
-    style.visuals.window_rounding = egui::Rounding::same(4.0);
-    style.visuals.panel_fill = egui::Color32::from_gray(24);
-    style.spacing.item_spacing = egui::vec2(6.0, 4.0);
-    ctx.set_style(style);
 }

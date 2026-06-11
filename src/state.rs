@@ -16,7 +16,6 @@ pub enum ActiveTab {
 
 #[derive(Clone, Debug)]
 pub struct LogLine {
-    #[allow(dead_code)]
     pub timestamp_ms: u64,
     pub text: String,
     pub kind: LogKind,
@@ -200,54 +199,3 @@ pub struct ChipInfo {
     pub fw_version: String,
 }
 
-// ── Demo fixture ──────────────────────────────────────────────────────────────
-
-pub fn demo_devices() -> ConnectedDevices {
-    ConnectedDevices {
-        debug_probe: Some(DebugProbeInfo {
-            name: "WCH-LinkE".into(),
-            transport: "USB HID · debug".into(),
-            status: LinkStatus::Connected,
-        }),
-        serial: Some(SerialDevInfo {
-            port: "COM7".into(),
-            baud: 115200,
-            framing: "8N1".into(),
-            status: LinkStatus::Connected,
-        }),
-        ethernet: Some(EthernetInfo {
-            ip: "203.0.113.42".into(),
-            speed: "Ethernet · 100M".into(),
-            status: LinkStatus::Connected,
-        }),
-        usb_hs: Some(UsbHsInfo {
-            class: "USB HS".into(),
-            note: "CDC-ACM · idle".into(),
-            status: LinkStatus::Disconnected,
-        }),
-        chip: Some(ChipInfo {
-            part: "CH32V307VCT6".into(),
-            core: "RV32IMAFC · 144MHz".into(),
-            flash_kb: 256,
-            ram_kb: 64,
-            fw_version: "v0.3.1-alpha".into(),
-        }),
-    }
-}
-
-pub fn demo_serial_log() -> Vec<LogLine> {
-    vec![
-        LogLine { timestamp_ms: 0,    text: "opening COM7 @ 115200 8N1...".into(), kind: LogKind::System },
-        LogLine { timestamp_ms: 1,    text: "[00:00.001] board init OK".into(),             kind: LogKind::Info },
-        LogLine { timestamp_ms: 12,   text: "[00:00.012] embassy executor started".into(),  kind: LogKind::Info },
-        LogLine { timestamp_ms: 15,   text: "[00:00.015] usb cdc-acm ready".into(),         kind: LogKind::Info },
-        LogLine { timestamp_ms: 20,   text: "[00:00.020] defmt tick=0".into(),              kind: LogKind::Info },
-        LogLine { timestamp_ms: 25,   text: "[00:00.025] led task spawned".into(),          kind: LogKind::Info },
-        LogLine { timestamp_ms: 1000, text: "[00:01.000] defmt tick=1000".into(),           kind: LogKind::Info },
-        LogLine { timestamp_ms: 2000, text: "[00:02.000] defmt tick=2000".into(),           kind: LogKind::Info },
-        LogLine { timestamp_ms: 3142, text: "[00:03.142] WARN: eth link down — retrying".into(), kind: LogKind::Warn },
-        LogLine { timestamp_ms: 3450, text: "[00:03.450] eth link up · 100Mbps full-duplex".into(), kind: LogKind::Info },
-        LogLine { timestamp_ms: 3451, text: "[00:03.451] dhcp lease → 203.0.113.42".into(), kind: LogKind::Info },
-        LogLine { timestamp_ms: 4000, text: "[00:04.000] defmt tick=4000".into(),           kind: LogKind::Info },
-    ]
-}

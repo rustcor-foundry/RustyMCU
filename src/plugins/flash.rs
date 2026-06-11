@@ -63,18 +63,6 @@ impl FlashOp {
             FlashOp::Error(_)    => "error",
         }
     }
-    pub fn progress_color(&self) -> bevy_egui::egui::Color32 {
-        use bevy_egui::egui::Color32;
-        match self {
-            FlashOp::Erasing     => Color32::from_rgb(200, 140, 50),
-            FlashOp::Programming => Color32::from_rgb(80, 140, 220),
-            FlashOp::Verifying   => Color32::from_rgb(80, 200, 120),
-            FlashOp::Writing     => Color32::from_rgb(80, 140, 220),
-            FlashOp::Done        => Color32::from_rgb(99, 180, 50),
-            FlashOp::Error(_)    => Color32::from_rgb(200, 80, 80),
-            FlashOp::Idle        => Color32::GRAY,
-        }
-    }
 }
 
 #[derive(Clone, Debug)]

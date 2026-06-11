@@ -1,8 +1,8 @@
 use bevy_egui::egui::{self, Color32, Grid, RichText, ScrollArea, Ui};
 use crate::plugins::usb::UsbDeviceList;
-use super::export;
+use super::{export, theme};
 
-const WCH_COLOR: Color32 = Color32::from_rgb(99, 153, 34);
+const WCH_COLOR: Color32 = theme::ACCENT;
 
 pub fn draw(ui: &mut Ui, list: &UsbDeviceList) {
     // ── Error banner ──────────────────────────────────────────────────────────
@@ -12,7 +12,7 @@ pub fn draw(ui: &mut Ui, list: &UsbDeviceList) {
             ui.add_space(12.0);
             ui.label(
                 RichText::new(format!("USB enumeration error: {err}"))
-                    .color(Color32::from_rgb(200, 80, 80))
+                    .color(theme::DANGER)
                     .size(12.0),
             );
         });
@@ -28,7 +28,7 @@ pub fn draw(ui: &mut Ui, list: &UsbDeviceList) {
         ui.label(
             RichText::new(format!("({} found)", list.devices.len()))
                 .size(12.0)
-                .color(Color32::GRAY),
+                .color(theme::TEXT3),
         );
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             ui.add_space(12.0);
@@ -44,7 +44,7 @@ pub fn draw(ui: &mut Ui, list: &UsbDeviceList) {
         ui.add_space(16.0);
         ui.horizontal(|ui| {
             ui.add_space(12.0);
-            ui.label(RichText::new("No USB devices detected").color(Color32::DARK_GRAY));
+            ui.label(RichText::new("No USB devices detected").color(theme::TEXT3));
         });
         return;
     }
@@ -64,7 +64,7 @@ pub fn draw(ui: &mut Ui, list: &UsbDeviceList) {
                         ui.label(
                             RichText::new(label)
                                 .size(10.0)
-                                .color(Color32::GRAY)
+                                .color(theme::TEXT3)
                                 .monospace(),
                         );
                     }
@@ -75,14 +75,14 @@ pub fn draw(ui: &mut Ui, list: &UsbDeviceList) {
         ui.separator();
 
         // Rows
-        for dev in &list.devices {
+        for (idx, dev) in list.devices.iter().enumerate() {
             let highlight = dev.is_wch();
-            let text_color = if highlight { WCH_COLOR } else { Color32::from_gray(180) };
+            let text_color = if highlight { WCH_COLOR } else { theme::TEXT2 };
 
             egui::Frame::none()
                 .inner_margin(egui::Margin { left: 12.0, right: 12.0, top: 3.0, bottom: 3.0 })
                 .show(ui, |ui| {
-                    Grid::new(format!("usb_row_{}_{}", dev.vendor_id, dev.product_id))
+                    Grid::new(format!("usb_row_{idx}"))
                         .num_columns(6)
                         .spacing([16.0, 0.0])
                         .show(ui, |ui| {
@@ -108,19 +108,19 @@ pub fn draw(ui: &mut Ui, list: &UsbDeviceList) {
                                 RichText::new(if dev.serial.is_empty() { "—" } else { &dev.serial })
                                     .monospace()
                                     .size(12.0)
-                                    .color(Color32::GRAY),
+                                    .color(theme::TEXT3),
                             );
                             ui.label(
                                 RichText::new(format!("{:#04x}", dev.class))
                                     .monospace()
                                     .size(12.0)
-                                    .color(Color32::GRAY),
+                                    .color(theme::TEXT3),
                             );
                             ui.label(
                                 RichText::new(&dev.speed)
                                     .monospace()
                                     .size(12.0)
-                                    .color(Color32::GRAY),
+                                    .color(theme::TEXT3),
                             );
                             ui.end_row();
                         });

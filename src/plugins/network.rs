@@ -44,7 +44,7 @@ pub struct NetworkState {
 impl Default for NetworkState {
     fn default() -> Self {
         Self {
-            host: "203.0.113.42".into(),
+            host: String::new(),
             port: "23".into(),
             connected: false,
             log: VecDeque::new(),
@@ -182,9 +182,6 @@ fn poll_tcp_events(
     let ms = time.elapsed().as_millis() as u64;
 
     while let Ok(event) = ch.rx.try_recv() {
-        if state.paused {
-            continue;
-        }
         match event {
             TcpEvent::Connected { peer } => {
                 state.connected = true;
@@ -203,6 +200,7 @@ fn poll_tcp_events(
                 });
             }
             TcpEvent::Data(bytes) => {
+                if state.paused { continue; }
                 state.rx_bytes += bytes.len();
                 // Split on newlines; display each line. Non-UTF-8 bytes → hex escape.
                 let text = bytes

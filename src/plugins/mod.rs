@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use crate::state::{demo_devices, demo_serial_log, SerialBuffer};
+use crate::state::ConnectedDevices;
 
 pub mod defmt_decode;
 pub mod flash;
@@ -12,21 +12,12 @@ pub struct BoardPlugins;
 
 impl Plugin for BoardPlugins {
     fn build(&self, app: &mut App) {
-        app.insert_resource(demo_devices())
+        app.insert_resource(ConnectedDevices::default())
             .add_plugins(serial::SerialPlugin)
             .add_plugins(usb::UsbPlugin)
             .add_plugins(network::NetworkPlugin)
             .add_plugins(flash::FlashPlugin)
             .add_plugins(defmt_decode::DefmtPlugin)
-            .add_plugins(tray::TrayPlugin)
-            .add_systems(Startup, seed_demo_log);
+            .add_plugins(tray::TrayPlugin);
     }
-}
-
-fn seed_demo_log(mut buf: ResMut<SerialBuffer>) {
-    for line in demo_serial_log() {
-        buf.push(line);
-    }
-    buf.rx_bytes = 1229;
-    buf.tx_bytes = 84;
 }

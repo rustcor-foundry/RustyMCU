@@ -7,6 +7,7 @@ use std::collections::VecDeque;
 pub enum ActiveTab {
     #[default]
     Serial,
+    Plot,
     Usb,
     Network,
     Flash,
@@ -79,6 +80,11 @@ pub struct SerialInput {
     pub text: String,
     pub encoding: Encoding,
     pub line_ending: LineEnding,
+    /// Previously sent commands, oldest first. Recalled with ↑/↓.
+    pub history: Vec<String>,
+    /// Cursor into `history` while browsing with the arrow keys; `None`
+    /// means the user is typing a fresh line.
+    pub history_idx: Option<usize>,
 }
 
 impl Default for SerialInput {
@@ -87,6 +93,48 @@ impl Default for SerialInput {
             text: String::new(),
             encoding: Encoding::Ascii,
             line_ending: LineEnding::Lf,
+            history: Vec::new(),
+            history_idx: None,
+        }
+    }
+}
+
+impl SerialInput {
+    const MAX_HISTORY: usize = 64;
+
+    pub fn push_history(&mut self, entry: String) {
+        if self.history.last() != Some(&entry) {
+            self.history.push(entry);
+            if self.history.len() > Self::MAX_HISTORY {
+                self.history.remove(0);
+            }
+        }
+        self.history_idx = None;
+    }
+
+    /// ↑ — step back through history. Returns the recalled entry.
+    pub fn history_prev(&mut self) -> Option<&str> {
+        if self.history.is_empty() {
+            return None;
+        }
+        let idx = match self.history_idx {
+            None => self.history.len() - 1,
+            Some(0) => 0,
+            Some(i) => i - 1,
+        };
+        self.history_idx = Some(idx);
+        self.history.get(idx).map(|s| s.as_str())
+    }
+
+    /// ↓ — step forward; past the newest entry returns an empty line.
+    pub fn history_next(&mut self) -> Option<&str> {
+        let idx = self.history_idx?;
+        if idx + 1 >= self.history.len() {
+            self.history_idx = None;
+            Some("")
+        } else {
+            self.history_idx = Some(idx + 1);
+            self.history.get(idx + 1).map(|s| s.as_str())
         }
     }
 }
@@ -113,14 +161,18 @@ impl Encoding {
 pub enum LineEnding {
     #[default]
     Lf,
+    Cr,
     CrLf,
     None,
 }
 
 impl LineEnding {
+    pub const ALL: [Self; 4] = [Self::Lf, Self::Cr, Self::CrLf, Self::None];
+
     pub fn label(self) -> &'static str {
         match self {
             Self::Lf => "LF",
+            Self::Cr => "CR",
             Self::CrLf => "CR+LF",
             Self::None => "none",
         }
@@ -129,9 +181,84 @@ impl LineEnding {
     pub fn bytes(self) -> &'static [u8] {
         match self {
             Self::Lf => b"\n",
+            Self::Cr => b"\r",
             Self::CrLf => b"\r\n",
             Self::None => b"",
         }
+    }
+}
+
+// ── Serial plotter ────────────────────────────────────────────────────────────
+//
+// Arduino-Serial-Plotter-style numeric stream capture. A serial line is
+// treated as a data sample only when *every* whitespace/comma-separated token
+// is numeric ("1.0 2.5") or labelled-numeric ("temp:23.4,hum:40") — mixed
+// text lines are ignored so ordinary logs don't pollute the chart.
+
+pub struct PlotSeries {
+    pub name: String,
+    pub points: VecDeque<[f64; 2]>, // [sample index, value]
+}
+
+#[derive(Resource)]
+pub struct PlotState {
+    pub series: Vec<PlotSeries>,
+    pub sample_idx: u64,
+    pub paused: bool,
+    /// Number of most-recent samples shown (x-axis window).
+    pub window: usize,
+}
+
+impl Default for PlotState {
+    fn default() -> Self {
+        Self { series: Vec::new(), sample_idx: 0, paused: false, window: 500 }
+    }
+}
+
+impl PlotState {
+    const MAX_POINTS: usize = 4096;
+
+    pub fn clear(&mut self) {
+        self.series.clear();
+        self.sample_idx = 0;
+    }
+
+    /// Parse one serial line; record it if it is pure numeric data.
+    pub fn ingest(&mut self, line: &str) {
+        if self.paused {
+            return;
+        }
+        let mut values: Vec<(Option<&str>, f64)> = Vec::new();
+        for token in line.split([',', '\t', ' ']).filter(|t| !t.is_empty()) {
+            let (label, num) = match token.split_once(':') {
+                Some((l, n)) => (Some(l.trim()), n.trim()),
+                None => (None, token),
+            };
+            match num.parse::<f64>() {
+                Ok(v) if v.is_finite() => values.push((label, v)),
+                _ => return, // non-numeric token → not a data line
+            }
+        }
+        if values.is_empty() {
+            return;
+        }
+
+        let x = self.sample_idx as f64;
+        for (i, (label, v)) in values.into_iter().enumerate() {
+            let name = label.map(str::to_owned).unwrap_or_else(|| format!("S{}", i + 1));
+            let series = match self.series.iter_mut().find(|s| s.name == name) {
+                Some(s) => s,
+                None => {
+                    self.series.push(PlotSeries { name, points: VecDeque::new() });
+                    self.series.last_mut().unwrap()
+                }
+            };
+            if series.points.len() >= Self::MAX_POINTS {
+                series.points.pop_front();
+            }
+            series.points.push_back([x, v]);
+        }
+        self.sample_idx += 1;
     }
 }
 

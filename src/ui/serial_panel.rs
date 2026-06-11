@@ -1,6 +1,6 @@
 use bevy_egui::egui::{self, RichText, ScrollArea, Ui};
 use crate::plugins::defmt_decode::DefmtState;
-use crate::plugins::serial::{SerialChannel, SerialCommand, PortScanner, COMMON_BAUDS};
+use crate::plugins::serial::{ReconnectState, SerialChannel, SerialCommand, PortScanner, COMMON_BAUDS};
 use crate::state::{ConnectedDevices, Encoding, LineEnding, LinkStatus, LogKind, LogLine, SerialBuffer, SerialInput};
 use super::{export, theme};
 
@@ -9,6 +9,7 @@ const COLOR_INFO:   egui::Color32 = theme::TEXT2;
 const COLOR_WARN:   egui::Color32 = theme::WARN;
 const COLOR_ERROR:  egui::Color32 = theme::DANGER;
 
+#[allow(clippy::too_many_arguments)]
 pub fn draw(
     ui: &mut Ui,
     buf: &mut SerialBuffer,
@@ -17,6 +18,7 @@ pub fn draw(
     scanner: &mut PortScanner,
     devices: &ConnectedDevices,
     defmt: &DefmtState,
+    reconnect: &mut ReconnectState,
 ) {
     let connected = devices.serial
         .as_ref()
@@ -30,7 +32,7 @@ pub fn draw(
     egui::TopBottomPanel::top("serial_header")
         .resizable(false)
         .show_inside(ui, |ui| {
-            connect_bar(ui, scanner, ch, connected, buf);
+            connect_bar(ui, scanner, ch, connected, buf, reconnect);
             ui.separator();
             toolbar(ui, buf, input, defmt);
         });
@@ -99,6 +101,7 @@ fn connect_bar(
     ch: &SerialChannel,
     connected: bool,
     buf: &mut SerialBuffer,
+    reconnect: &mut ReconnectState,
 ) {
     ui.add_space(4.0);
     ui.horizontal(|ui| {
@@ -113,16 +116,16 @@ fn connect_bar(
                 });
         });
 
-        ui.add_enabled_ui(!connected, |ui| {
-            egui::ComboBox::from_id_salt("baud_select")
-                .selected_text(format!("{}", scanner.baud))
-                .width(85.0)
-                .show_ui(ui, |ui| {
-                    for &baud in COMMON_BAUDS {
-                        ui.selectable_value(&mut scanner.baud, baud, format!("{baud}"));
-                    }
-                });
-        });
+        // Baud stays enabled while connected — watch_baud_change retunes the
+        // open port live, Arduino-style.
+        egui::ComboBox::from_id_salt("baud_select")
+            .selected_text(format!("{}", scanner.baud))
+            .width(85.0)
+            .show_ui(ui, |ui| {
+                for &baud in COMMON_BAUDS {
+                    ui.selectable_value(&mut scanner.baud, baud, format!("{baud}"));
+                }
+            });
 
         ui.add_enabled_ui(!connected, |ui| {
             if ui.small_button("↺").on_hover_text("Refresh port list").clicked() {
@@ -144,10 +147,26 @@ fn connect_bar(
             });
         }
 
+        // Auto-reconnect toggle.
+        let auto_color = if reconnect.enabled { theme::ACCENT } else { theme::TEXT3 };
+        if ui
+            .add(egui::Button::new(RichText::new("↻ auto").size(11.0).color(auto_color)))
+            .on_hover_text("Reconnect automatically when the port reappears")
+            .clicked()
+        {
+            reconnect.enabled = !reconnect.enabled;
+            if !reconnect.enabled {
+                reconnect.waiting = false;
+            }
+        }
+
         let (badge, color) = if connected {
-            ("● connected", theme::ACCENT)
+            ("● connected".to_string(), theme::ACCENT)
+        } else if reconnect.waiting {
+            let port = reconnect.target.as_ref().map(|(p, _)| p.as_str()).unwrap_or("port");
+            (format!("⟳ waiting for {port}…"), theme::WARN)
         } else {
-            ("○ disconnected", theme::TEXT3)
+            ("○ disconnected".to_string(), theme::TEXT3)
         };
         ui.label(RichText::new(badge).size(11.0).color(color));
     });
@@ -269,10 +288,27 @@ fn send_bar(ui: &mut Ui, buf: &mut SerialBuffer, input: &mut SerialInput, ch: &S
         let resp = ui.add(
             egui::TextEdit::singleline(&mut input.text)
                 .desired_width(f32::INFINITY)
-                .hint_text("send bytes…")
+                .hint_text("send bytes…  (↑/↓ history)")
                 .font(egui::TextStyle::Monospace)
                 .frame(false),
         );
+
+        // ↑/↓ recall previous commands while the input has focus.
+        if resp.has_focus() {
+            let (up, down) = ui.input(|i| {
+                (i.key_pressed(egui::Key::ArrowUp), i.key_pressed(egui::Key::ArrowDown))
+            });
+            let recalled = if up {
+                input.history_prev().map(str::to_owned)
+            } else if down {
+                input.history_next().map(str::to_owned)
+            } else {
+                None
+            };
+            if let Some(text) = recalled {
+                input.text = text;
+            }
+        }
 
         egui::ComboBox::from_id_salt("encoding")
             .selected_text(input.encoding.label())
@@ -287,7 +323,7 @@ fn send_bar(ui: &mut Ui, buf: &mut SerialBuffer, input: &mut SerialInput, ch: &S
             .selected_text(input.line_ending.label())
             .width(60.0)
             .show_ui(ui, |ui| {
-                for le in [LineEnding::Lf, LineEnding::CrLf, LineEnding::None] {
+                for le in LineEnding::ALL {
                     ui.selectable_value(&mut input.line_ending, le, le.label());
                 }
             });
@@ -318,6 +354,7 @@ fn do_connect(scanner: &PortScanner, ch: &SerialChannel, buf: &mut SerialBuffer)
 
 fn send_bytes(input: &mut SerialInput, buf: &mut SerialBuffer, ch: &SerialChannel) {
     if input.text.is_empty() { return; }
+    input.push_history(input.text.clone());
     let mut bytes = match input.encoding {
         Encoding::Ascii | Encoding::Defmt => input.text.as_bytes().to_vec(),
         Encoding::Hex => input.text

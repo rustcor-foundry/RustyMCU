@@ -4,13 +4,14 @@ use crate::plugins::defmt_decode::DefmtState;
 use crate::plugins::flash::FlashState;
 use crate::plugins::flash::{DiskChannel, ProbeChannel};
 use crate::plugins::network::{NetworkState, TcpChannel};
-use crate::plugins::serial::{PortScanner, SerialChannel};
+use crate::plugins::serial::{PortScanner, ReconnectState, SerialChannel};
 use crate::plugins::usb::UsbDeviceList;
-use crate::state::{ActiveTab, ConnectedDevices, SerialBuffer, SerialInput};
+use crate::state::{ActiveTab, ConnectedDevices, PlotState, SerialBuffer, SerialInput};
 
 mod export;
 mod flash_panel;
 mod network_panel;
+mod plot_panel;
 mod serial_panel;
 mod sidebar;
 pub mod theme;
@@ -34,6 +35,8 @@ fn draw_ui(
     mut serial_input: ResMut<SerialInput>,
     serial_ch: Res<SerialChannel>,
     mut port_scanner: ResMut<PortScanner>,
+    mut reconnect: ResMut<ReconnectState>,
+    mut plot_state: ResMut<PlotState>,
     usb_devices: Res<UsbDeviceList>,
     mut net_state: ResMut<NetworkState>,
     net_ch: Res<TcpChannel>,
@@ -70,7 +73,9 @@ fn draw_ui(
                 &mut port_scanner,
                 &devices,
                 &defmt_state,
+                &mut reconnect,
             ),
+            ActiveTab::Plot    => plot_panel::draw(ui, &mut plot_state),
             ActiveTab::Usb     => usb_panel::draw(ui, &usb_devices),
             ActiveTab::Network => network_panel::draw(ui, &mut net_state, &net_ch),
             ActiveTab::Flash   => flash_panel::draw(ui, &mut flash_state, &probe_ch, &disk_ch),
@@ -83,6 +88,7 @@ fn tab_bar(ui: &mut egui::Ui, active: &mut ActiveTab) {
         ui.set_min_height(36.0);
         ui.add_space(8.0);
         tab_button(ui, active, ActiveTab::Serial,  "⌨ Serial");
+        tab_button(ui, active, ActiveTab::Plot,    "📈 Plot");
         tab_button(ui, active, ActiveTab::Usb,     "⎇ USB");
         tab_button(ui, active, ActiveTab::Network, "⊞ Network");
         tab_button(ui, active, ActiveTab::Flash,   "↑ Flash");

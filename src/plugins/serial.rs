@@ -3,7 +3,7 @@ use crossbeam_channel::{bounded, Receiver, Sender};
 use std::io::Write;
 use std::time::Duration;
 use crate::plugins::defmt_decode::DefmtState;
-use crate::state::{ConnectedDevices, Encoding, LinkStatus, LogKind, LogLine, SerialBuffer, SerialDevInfo, SerialInput};
+use crate::state::{ConnectedDevices, Encoding, LinkStatus, LogKind, LogLine, PlotState, SerialBuffer, SerialDevInfo, SerialInput};
 
 // ── Channel types ─────────────────────────────────────────────────────────────
 
@@ -27,6 +27,8 @@ pub enum SerialCommand {
     Connect { port: String, baud: u32 },
     Disconnect,
     Send(Vec<u8>),
+    /// Change baud rate on the open port without reopening it.
+    SetBaud(u32),
 }
 
 // ── Port scanner ──────────────────────────────────────────────────────────────
@@ -58,6 +60,24 @@ impl Default for PortScanner {
     }
 }
 
+/// Arduino-IDE-style auto-reconnect: when an open port drops unexpectedly
+/// (board reset, replug), reopen it as soon as it reappears in the scan.
+#[derive(Resource)]
+pub struct ReconnectState {
+    /// Last successful connection — reconnect target.
+    pub target: Option<(String, u32)>,
+    /// True while we're waiting for the lost port to come back.
+    pub waiting: bool,
+    /// UI toggle; on by default.
+    pub enabled: bool,
+}
+
+impl Default for ReconnectState {
+    fn default() -> Self {
+        Self { target: None, waiting: false, enabled: true }
+    }
+}
+
 // ── Plugin ────────────────────────────────────────────────────────────────────
 
 pub struct SerialPlugin;
@@ -75,9 +95,11 @@ impl Plugin for SerialPlugin {
         app.insert_resource(SerialBuffer::default())
             .insert_resource(SerialInput::default())
             .insert_resource(PortScanner::default())
+            .insert_resource(ReconnectState::default())
+            .insert_resource(PlotState::default())
             .insert_resource(SerialChannel { rx: event_rx, tx: cmd_tx })
             .add_systems(Startup, initial_port_scan)
-            .add_systems(Update, (poll_serial_events, periodic_port_scan));
+            .add_systems(Update, (poll_serial_events, periodic_port_scan, watch_baud_change));
     }
 }
 
@@ -87,10 +109,33 @@ fn initial_port_scan(mut scanner: ResMut<PortScanner>) {
     refresh_ports(&mut scanner);
 }
 
-fn periodic_port_scan(mut scanner: ResMut<PortScanner>, time: Res<Time>) {
+fn periodic_port_scan(
+    mut scanner: ResMut<PortScanner>,
+    mut reconnect: ResMut<ReconnectState>,
+    ch: Res<SerialChannel>,
+    mut buf: ResMut<SerialBuffer>,
+    time: Res<Time>,
+) {
     scanner.timer.tick(time.delta());
-    if scanner.timer.just_finished() {
-        refresh_ports(&mut scanner);
+    if !scanner.timer.just_finished() {
+        return;
+    }
+    refresh_ports(&mut scanner);
+
+    // Auto-reconnect: the lost port is back — reopen it. Rate-limited to the
+    // scan cadence (2s), so a failing port retries instead of spinning.
+    if reconnect.waiting && reconnect.enabled {
+        if let Some((port, baud)) = reconnect.target.clone() {
+            if scanner.ports.contains(&port) {
+                reconnect.waiting = false;
+                buf.push(LogLine {
+                    timestamp_ms: time.elapsed().as_millis() as u64,
+                    text: format!("reconnecting to {port} @ {baud}…"),
+                    kind: LogKind::System,
+                });
+                let _ = ch.tx.send(SerialCommand::Connect { port, baud });
+            }
+        }
     }
 }
 
@@ -119,6 +164,32 @@ fn refresh_ports(scanner: &mut PortScanner) {
     scanner.ports = ports;
 }
 
+/// Live baud switch, Arduino-style: changing the baud picker while connected
+/// retunes the open port instead of requiring a disconnect/reconnect cycle.
+fn watch_baud_change(
+    scanner: Res<PortScanner>,
+    mut devices: ResMut<ConnectedDevices>,
+    mut reconnect: ResMut<ReconnectState>,
+    ch: Res<SerialChannel>,
+    mut buf: ResMut<SerialBuffer>,
+    time: Res<Time>,
+) {
+    let Some(ref mut s) = devices.serial else { return };
+    if !matches!(s.status, LinkStatus::Connected) || s.baud == scanner.baud {
+        return;
+    }
+    let _ = ch.tx.send(SerialCommand::SetBaud(scanner.baud));
+    s.baud = scanner.baud;
+    if let Some((_, baud)) = reconnect.target.as_mut() {
+        *baud = scanner.baud;
+    }
+    buf.push(LogLine {
+        timestamp_ms: time.elapsed().as_millis() as u64,
+        text: format!("baud → {}", scanner.baud),
+        kind: LogKind::System,
+    });
+}
+
 // ── Background I/O thread ─────────────────────────────────────────────────────
 
 fn serial_thread(tx: Sender<SerialEvent>, rx: Receiver<SerialCommand>) {
@@ -133,7 +204,12 @@ fn serial_thread(tx: Sender<SerialEvent>, rx: Receiver<SerialCommand>) {
                         .timeout(Duration::from_millis(10))
                         .open()
                     {
-                        Ok(p) => {
+                        Ok(mut p) => {
+                            // Assert DTR like the Arduino IDE monitor: USB-CDC
+                            // firmware commonly withholds TX until the host
+                            // raises it, and Arduino-style boards use it for
+                            // auto-reset.
+                            let _ = p.write_data_terminal_ready(true);
                             let _ = tx.send(SerialEvent::Connected(name));
                             port = Some(p);
                         }
@@ -149,6 +225,13 @@ fn serial_thread(tx: Sender<SerialEvent>, rx: Receiver<SerialCommand>) {
                 SerialCommand::Send(bytes) => {
                     if let Some(p) = port.as_mut() {
                         let _ = p.write_all(&bytes);
+                    }
+                }
+                SerialCommand::SetBaud(baud) => {
+                    if let Some(p) = port.as_mut() {
+                        if let Err(e) = p.set_baud_rate(baud) {
+                            let _ = tx.send(SerialEvent::Error(format!("set baud: {e}")));
+                        }
                     }
                 }
             }
@@ -183,6 +266,8 @@ pub fn poll_serial_events(
     scanner: Res<PortScanner>,
     input: Res<SerialInput>,
     mut defmt: ResMut<DefmtState>,
+    mut reconnect: ResMut<ReconnectState>,
+    mut plot: ResMut<PlotState>,
     time: Res<Time>,
     mut line_acc: Local<String>,
 ) {
@@ -200,6 +285,7 @@ pub fn poll_serial_events(
                     Encoding::Defmt => {
                         // Feed raw bytes through the defmt decoder.
                         for (text, kind) in defmt.feed(&bytes) {
+                            plot.ingest(&text);
                             buf.push(LogLine { timestamp_ms: ms, text, kind });
                         }
                     }
@@ -220,6 +306,7 @@ pub fn poll_serial_events(
                                 b'\n' => {
                                     let text = std::mem::take(&mut *line_acc);
                                     if !text.is_empty() {
+                                        plot.ingest(&text);
                                         let kind = classify(&text);
                                         buf.push(LogLine { timestamp_ms: ms, text, kind });
                                     }
@@ -233,6 +320,8 @@ pub fn poll_serial_events(
             }
 
             SerialEvent::Connected(port) => {
+                reconnect.target = Some((port.clone(), scanner.baud));
+                reconnect.waiting = false;
                 match &mut devices.serial {
                     Some(s) => {
                         s.port = port.clone();
@@ -255,6 +344,9 @@ pub fn poll_serial_events(
                 });
             }
             SerialEvent::Disconnected => {
+                // User-initiated — don't chase this port.
+                reconnect.target = None;
+                reconnect.waiting = false;
                 if let Some(ref mut s) = devices.serial {
                     s.status = LinkStatus::Disconnected;
                 }
@@ -275,6 +367,19 @@ pub fn poll_serial_events(
                     text: format!("error: {e}"),
                     kind: LogKind::Error,
                 });
+                // Unexpected drop (board reset, replug, open failure) —
+                // arm the auto-reconnect watcher.
+                if reconnect.enabled && reconnect.target.is_some() {
+                    if !reconnect.waiting {
+                        let port = reconnect.target.as_ref().unwrap().0.clone();
+                        buf.push(LogLine {
+                            timestamp_ms: ms,
+                            text: format!("waiting for {port} to reappear…"),
+                            kind: LogKind::System,
+                        });
+                    }
+                    reconnect.waiting = true;
+                }
             }
         }
     }

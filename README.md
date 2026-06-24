@@ -75,5 +75,9 @@ hardware/embedded workflow. Interfaces and panels are still evolving.
 
 ## License
 
-License not yet declared. Treat as all-rights-reserved until a `LICENSE` file
-is added.
+Licensed under either of:
+
+- MIT License ([LICENSE-MIT](LICENSE-MIT))
+- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE))
+
+at your option.

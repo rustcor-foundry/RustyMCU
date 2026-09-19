@@ -6,9 +6,9 @@ on:
   pull_request:
     branches: [main]
 
-# Runs on ws-ws01 (Windows Server 2022) using the pre-provisioned rustup/cargo.
-# Installing a toolchain action that shells out to bash fails on this runner
-# (service account cannot launch WSL).
+# Runs on a Windows runner with a pre-provisioned rustup/cargo toolchain.
+# Toolchain-installer actions that shell out to bash are not used because
+# WSL is unavailable in this environment.
 env:
   CARGO_TERM_COLOR: always
 

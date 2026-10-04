@@ -1,7 +1,7 @@
+use super::theme;
+use crate::state::PlotState;
 use bevy_egui::egui::{self, RichText, Ui};
 use egui_plot::{Legend, Line, Plot, PlotPoints};
-use crate::state::PlotState;
-use super::theme;
 
 const SERIES_COLORS: [egui::Color32; 6] = [
     theme::ACCENT,
@@ -18,7 +18,11 @@ pub fn draw(ui: &mut Ui, state: &mut PlotState) {
     ui.horizontal(|ui| {
         ui.add_space(4.0);
 
-        let pause_lbl = if state.paused { "▶ Resume" } else { "⏸ Pause" };
+        let pause_lbl = if state.paused {
+            "▶ Resume"
+        } else {
+            "⏸ Pause"
+        };
         if ui.small_button(pause_lbl).clicked() {
             state.paused = !state.paused;
         }
@@ -56,7 +60,11 @@ pub fn draw(ui: &mut Ui, state: &mut PlotState) {
     if state.series.is_empty() {
         ui.add_space(24.0);
         ui.vertical_centered(|ui| {
-            ui.label(RichText::new("No plot data yet").size(13.0).color(theme::TEXT2));
+            ui.label(
+                RichText::new("No plot data yet")
+                    .size(13.0)
+                    .color(theme::TEXT2),
+            );
             ui.add_space(6.0);
             ui.label(
                 RichText::new(

@@ -1,7 +1,7 @@
-use bevy::prelude::*;
-use std::path::PathBuf;
 use crate::plugins::flash::FlashState;
 use crate::state::LogKind;
+use bevy::prelude::*;
+use std::path::PathBuf;
 
 // ── Plugin ────────────────────────────────────────────────────────────────────
 
@@ -28,7 +28,9 @@ pub struct DefmtState {
 pub enum DefmtStatus {
     #[default]
     NoElf,
-    Loaded { path: String },
+    Loaded {
+        path: String,
+    },
     NoTable,
     Error(String),
 }
@@ -36,7 +38,7 @@ pub enum DefmtStatus {
 impl DefmtStatus {
     pub fn label(&self) -> String {
         match self {
-            Self::NoElf   => "no ELF loaded".into(),
+            Self::NoElf => "no ELF loaded".into(),
             Self::NoTable => "ELF has no defmt table".into(),
             Self::Loaded { path } => format!("✓ {path}"),
             Self::Error(e) => format!("error: {e}"),
@@ -55,7 +57,10 @@ impl DefmtState {
     /// for every complete frame decoded.
     pub fn feed(&mut self, bytes: &[u8]) -> Vec<(String, LogKind)> {
         let Some(ref table) = self.table else {
-            return vec![("[defmt] no ELF table loaded — switch encoding to ASCII".into(), LogKind::System)];
+            return vec![(
+                "[defmt] no ELF table loaded — switch encoding to ASCII".into(),
+                LogKind::System,
+            )];
         };
 
         self.pending.extend_from_slice(bytes);
@@ -66,8 +71,8 @@ impl DefmtState {
                 Ok((frame, consumed)) => {
                     let kind = match frame.level() {
                         Some(defmt_parser::Level::Error) => LogKind::Error,
-                        Some(defmt_parser::Level::Warn)  => LogKind::Warn,
-                        _                                  => LogKind::Info,
+                        Some(defmt_parser::Level::Warn) => LogKind::Warn,
+                        _ => LogKind::Info,
                     };
                     let text = frame.display(false).to_string();
                     self.pending.drain(..consumed);
@@ -98,7 +103,8 @@ impl DefmtState {
 
         match defmt_decoder::Table::parse(&bytes) {
             Ok(Some(table)) => {
-                let label = path.file_name()
+                let label = path
+                    .file_name()
                     .unwrap_or_default()
                     .to_string_lossy()
                     .into_owned();
@@ -127,7 +133,9 @@ impl DefmtState {
 // ── System: reload table when Flash panel loads a new ELF ────────────────────
 
 fn watch_flash_elf(flash: Res<FlashState>, mut defmt: ResMut<DefmtState>) {
-    let Some(ref file) = flash.probe_file else { return };
+    let Some(ref file) = flash.probe_file else {
+        return;
+    };
     let already_loaded = defmt.loaded_from.as_ref() == Some(&file.path);
     if !already_loaded {
         defmt.load(&file.path);

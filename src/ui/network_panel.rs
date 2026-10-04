@@ -1,11 +1,11 @@
-use bevy_egui::egui::{self, RichText, ScrollArea, Ui};
+use super::theme;
 use crate::plugins::network::{NetworkState, TcpChannel, TcpCommand};
 use crate::state::LogKind;
-use super::theme;
+use bevy_egui::egui::{self, RichText, ScrollArea, Ui};
 
 const COLOR_SYSTEM: egui::Color32 = theme::TEXT3;
-const COLOR_INFO:   egui::Color32 = theme::TEXT2;
-const COLOR_ERROR:  egui::Color32 = theme::DANGER;
+const COLOR_INFO: egui::Color32 = theme::TEXT2;
+const COLOR_ERROR: egui::Color32 = theme::DANGER;
 
 pub fn draw(ui: &mut Ui, state: &mut NetworkState, ch: &TcpChannel) {
     // ── Bottom send bar ───────────────────────────────────────────────────────
@@ -30,21 +30,31 @@ pub fn draw(ui: &mut Ui, state: &mut NetworkState, ch: &TcpChannel) {
                 .inner_margin(egui::Margin::symmetric(10.0, 6.0)),
         )
         .show_inside(ui, |ui| {
-        let row_height = ui.text_style_height(&egui::TextStyle::Monospace);
+            let row_height = ui.text_style_height(&egui::TextStyle::Monospace);
 
-        ScrollArea::vertical()
-            .auto_shrink([false; 2])
-            .stick_to_bottom(!state.paused)
-            .show_rows(ui, row_height, state.log.len(), |ui, range| {
-                for line in state.log.range(range) {
-                    let color = line_color(&line.kind);
-                    ui.label(RichText::new(&line.text).monospace().size(12.0).color(color));
-                }
-                if !state.paused && state.connected {
-                    ui.label(RichText::new("█").monospace().size(12.0).color(theme::ACCENT));
-                }
-            });
-    });
+            ScrollArea::vertical()
+                .auto_shrink([false; 2])
+                .stick_to_bottom(!state.paused)
+                .show_rows(ui, row_height, state.log.len(), |ui, range| {
+                    for line in state.log.range(range) {
+                        let color = line_color(&line.kind);
+                        ui.label(
+                            RichText::new(&line.text)
+                                .monospace()
+                                .size(12.0)
+                                .color(color),
+                        );
+                    }
+                    if !state.paused && state.connected {
+                        ui.label(
+                            RichText::new("█")
+                                .monospace()
+                                .size(12.0)
+                                .color(theme::ACCENT),
+                        );
+                    }
+                });
+        });
 }
 
 fn connect_bar(ui: &mut Ui, state: &mut NetworkState, ch: &TcpChannel) {
@@ -106,15 +116,23 @@ fn stats_toolbar(ui: &mut Ui, state: &mut NetworkState) {
         ui.add_space(4.0);
         ui.label(
             RichText::new(format!("RX {}", fmt_bytes(state.rx_bytes)))
-                .size(11.0).monospace().color(theme::TEXT3),
+                .size(11.0)
+                .monospace()
+                .color(theme::TEXT3),
         );
         ui.separator();
         ui.label(
             RichText::new(format!("TX {}", fmt_bytes(state.tx_bytes)))
-                .size(11.0).monospace().color(theme::TEXT3),
+                .size(11.0)
+                .monospace()
+                .color(theme::TEXT3),
         );
         ui.add_space(8.0);
-        let pause_label = if state.paused { "▶ Resume" } else { "⏸ Pause" };
+        let pause_label = if state.paused {
+            "▶ Resume"
+        } else {
+            "⏸ Pause"
+        };
         if ui.small_button(pause_label).clicked() {
             state.paused = !state.paused;
         }
@@ -127,7 +145,12 @@ fn stats_toolbar(ui: &mut Ui, state: &mut NetworkState) {
 fn send_bar(ui: &mut Ui, state: &mut NetworkState, ch: &TcpChannel) {
     ui.add_space(4.0);
     ui.horizontal(|ui| {
-        ui.label(RichText::new("›").size(14.0).monospace().color(theme::ACCENT));
+        ui.label(
+            RichText::new("›")
+                .size(14.0)
+                .monospace()
+                .color(theme::ACCENT),
+        );
 
         let resp = ui.add(
             egui::TextEdit::singleline(&mut state.input)
@@ -158,9 +181,9 @@ fn send_bar(ui: &mut Ui, state: &mut NetworkState, ch: &TcpChannel) {
 fn line_color(kind: &LogKind) -> egui::Color32 {
     match kind {
         LogKind::System => COLOR_SYSTEM,
-        LogKind::Info   => COLOR_INFO,
-        LogKind::Warn   => theme::WARN,
-        LogKind::Error  => COLOR_ERROR,
+        LogKind::Info => COLOR_INFO,
+        LogKind::Warn => theme::WARN,
+        LogKind::Error => COLOR_ERROR,
     }
 }
 

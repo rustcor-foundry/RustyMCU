@@ -95,7 +95,10 @@ impl Plugin for NetworkPlugin {
             .expect("spawn network-io thread");
 
         app.insert_resource(NetworkState::default())
-            .insert_resource(TcpChannel { rx: event_rx, tx: cmd_tx })
+            .insert_resource(TcpChannel {
+                rx: event_rx,
+                tx: cmd_tx,
+            })
             .add_systems(Update, poll_tcp_events);
     }
 }
@@ -110,10 +113,7 @@ async fn tcp_worker(tx: Sender<TcpEvent>, mut cmd_rx: mpsc::UnboundedReceiver<Tc
                 let addr = format!("{host}:{port}");
                 match tokio::net::TcpStream::connect(&addr).await {
                     Ok(stream) => {
-                        let peer = stream
-                            .peer_addr()
-                            .map(|a| a.to_string())
-                            .unwrap_or(addr);
+                        let peer = stream.peer_addr().map(|a| a.to_string()).unwrap_or(addr);
                         let _ = tx.send(TcpEvent::Connected { peer });
                         run_connected(stream, &tx, &mut cmd_rx).await;
                     }
@@ -174,11 +174,7 @@ async fn run_connected(
 
 // ── Bevy system: drain events into NetworkState ───────────────────────────────
 
-fn poll_tcp_events(
-    ch: Res<TcpChannel>,
-    mut state: ResMut<NetworkState>,
-    time: Res<Time>,
-) {
+fn poll_tcp_events(ch: Res<TcpChannel>, mut state: ResMut<NetworkState>, time: Res<Time>) {
     let ms = time.elapsed().as_millis() as u64;
 
     while let Ok(event) = ch.rx.try_recv() {
@@ -200,7 +196,9 @@ fn poll_tcp_events(
                 });
             }
             TcpEvent::Data(bytes) => {
-                if state.paused { continue; }
+                if state.paused {
+                    continue;
+                }
                 state.rx_bytes += bytes.len();
                 // Split on newlines; display each line. Non-UTF-8 bytes → hex escape.
                 let text = bytes
@@ -211,7 +209,11 @@ fn poll_tcp_events(
                     })
                     .filter(|s| !s.is_empty());
                 for line in text {
-                    state.push(LogLine { timestamp_ms: ms, text: line, kind: LogKind::Info });
+                    state.push(LogLine {
+                        timestamp_ms: ms,
+                        text: line,
+                        kind: LogKind::Info,
+                    });
                 }
             }
             TcpEvent::Error(e) => {

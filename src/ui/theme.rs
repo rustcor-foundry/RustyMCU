@@ -4,26 +4,26 @@
 use bevy_egui::egui::{self, Color32, Rounding, Stroke};
 
 // ── Accent — phosphor green (sonar ping) ─────────────────────────────────────
-pub const ACCENT:     Color32 = Color32::from_rgb(0x00, 0xe8, 0x7a);
+pub const ACCENT: Color32 = Color32::from_rgb(0x00, 0xe8, 0x7a);
 pub const ACCENT_DIM: Color32 = Color32::from_rgb(0x00, 0xb8, 0x5e);
 
 // ── Semantic ──────────────────────────────────────────────────────────────────
 pub const DANGER: Color32 = Color32::from_rgb(0xff, 0x4d, 0x6d);
-pub const WARN:   Color32 = Color32::from_rgb(0xf5, 0xc8, 0x42);
-pub const INFO:   Color32 = Color32::from_rgb(0x00, 0xc8, 0xd4);
+pub const WARN: Color32 = Color32::from_rgb(0xf5, 0xc8, 0x42);
+pub const INFO: Color32 = Color32::from_rgb(0x00, 0xc8, 0xd4);
 
 // ── Deep ocean surfaces ───────────────────────────────────────────────────────
 pub const BG_DEEP: Color32 = Color32::from_rgb(0x04, 0x08, 0x10); // terminal wells
-pub const BG:      Color32 = Color32::from_rgb(0x06, 0x0b, 0x12); // app background
-pub const BG2:     Color32 = Color32::from_rgb(0x0d, 0x1f, 0x30); // raised panels
-pub const BG3:     Color32 = Color32::from_rgb(0x12, 0x25, 0x38); // cards
-pub const BG4:     Color32 = Color32::from_rgb(0x18, 0x30, 0x48); // buttons
+pub const BG: Color32 = Color32::from_rgb(0x06, 0x0b, 0x12); // app background
+pub const BG2: Color32 = Color32::from_rgb(0x0d, 0x1f, 0x30); // raised panels
+pub const BG3: Color32 = Color32::from_rgb(0x12, 0x25, 0x38); // cards
+pub const BG4: Color32 = Color32::from_rgb(0x18, 0x30, 0x48); // buttons
 
-pub const BORDER:       Color32 = Color32::from_rgb(0x27, 0x4d, 0x65);
+pub const BORDER: Color32 = Color32::from_rgb(0x27, 0x4d, 0x65);
 pub const BORDER_LIGHT: Color32 = Color32::from_rgb(0x1e, 0x3a, 0x52);
 
 // ── Text ──────────────────────────────────────────────────────────────────────
-pub const TEXT:  Color32 = Color32::from_rgb(0xd8, 0xf2, 0xe8);
+pub const TEXT: Color32 = Color32::from_rgb(0xd8, 0xf2, 0xe8);
 pub const TEXT2: Color32 = Color32::from_rgb(0xa9, 0xd3, 0xc7);
 pub const TEXT3: Color32 = Color32::from_rgb(0x7f, 0xb3, 0xa6);
 
@@ -87,8 +87,15 @@ pub fn apply(ctx: &egui::Context) {
 /// Primary action button: accent fill, dark text — Fathom's `.btn.accent`.
 pub fn accent_button(ui: &mut egui::Ui, label: &str) -> egui::Response {
     let fill = if ui.is_enabled() { ACCENT_DIM } else { BG4 };
-    let text = egui::RichText::new(label).size(13.0).strong().color(BG_DEEP);
-    ui.add(egui::Button::new(text).fill(fill).stroke(Stroke::new(1.0_f32, ACCENT)))
+    let text = egui::RichText::new(label)
+        .size(13.0)
+        .strong()
+        .color(BG_DEEP);
+    ui.add(
+        egui::Button::new(text)
+            .fill(fill)
+            .stroke(Stroke::new(1.0_f32, ACCENT)),
+    )
 }
 
 /// Destructive action button: transparent fill, danger outline — `.btn.danger`.

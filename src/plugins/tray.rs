@@ -32,8 +32,7 @@ fn build_tray_state() -> TrayState {
         .expect("tray icon png")
         .into_rgba8();
     let (w, h) = img.dimensions();
-    let icon =
-        tray_icon::Icon::from_rgba(img.into_raw(), w, h).expect("tray icon rgba");
+    let icon = tray_icon::Icon::from_rgba(img.into_raw(), w, h).expect("tray icon rgba");
 
     let show_item = MenuItem::new("Show", true, None);
     let quit_item = MenuItem::new("Quit", true, None);
@@ -42,7 +41,8 @@ fn build_tray_state() -> TrayState {
 
     let menu = Menu::new();
     menu.append(&show_item).expect("tray menu show");
-    menu.append(&PredefinedMenuItem::separator()).expect("tray menu sep");
+    menu.append(&PredefinedMenuItem::separator())
+        .expect("tray menu sep");
     menu.append(&quit_item).expect("tray menu quit");
 
     let tray = TrayIconBuilder::new()
@@ -52,7 +52,11 @@ fn build_tray_state() -> TrayState {
         .build()
         .expect("tray icon build");
 
-    TrayState { _icon: tray, show_id, quit_id }
+    TrayState {
+        _icon: tray,
+        show_id,
+        quit_id,
+    }
 }
 
 fn poll_tray_events(
@@ -72,7 +76,10 @@ fn poll_tray_events(
                 button: MouseButton::Left,
                 button_state: MouseButtonState::Up,
                 ..
-            } | TrayIconEvent::DoubleClick { button: MouseButton::Left, .. }
+            } | TrayIconEvent::DoubleClick {
+                button: MouseButton::Left,
+                ..
+            }
         );
         if clicked {
             show_window(&mut windows, &mut winit_settings);

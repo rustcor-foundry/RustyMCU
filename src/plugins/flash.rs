@@ -1,8 +1,8 @@
-﻿use bevy::prelude::*;
+use crate::state::{LogKind, LogLine};
+use bevy::prelude::*;
 use crossbeam_channel::{bounded, Receiver, Sender};
 use std::io::{Read, Write};
 use std::path::PathBuf;
-use crate::state::{LogKind, LogLine};
 
 // ── Public info types ─────────────────────────────────────────────────────────
 
@@ -27,19 +27,27 @@ impl DriveInfo {
     }
     pub fn size_label(&self) -> String {
         let gb = self.size_bytes as f64 / 1_073_741_824.0;
-        if gb >= 1.0 { format!("{:.1} GB", gb) }
-        else { format!("{:.0} MB", self.size_bytes as f64 / 1_048_576.0) }
+        if gb >= 1.0 {
+            format!("{:.1} GB", gb)
+        } else {
+            format!("{:.0} MB", self.size_bytes as f64 / 1_048_576.0)
+        }
     }
 }
 
 // ── Flash state ───────────────────────────────────────────────────────────────
 
 #[derive(Default, Clone, Copy, PartialEq)]
-pub enum FlashMode { #[default] Probe, Disk }
+pub enum FlashMode {
+    #[default]
+    Probe,
+    Disk,
+}
 
 #[derive(Default, Clone, PartialEq, Debug)]
 pub enum FlashOp {
-    #[default] Idle,
+    #[default]
+    Idle,
     Erasing,
     Programming,
     Verifying,
@@ -50,17 +58,20 @@ pub enum FlashOp {
 
 impl FlashOp {
     pub fn is_busy(&self) -> bool {
-        matches!(self, FlashOp::Erasing | FlashOp::Programming | FlashOp::Verifying | FlashOp::Writing)
+        matches!(
+            self,
+            FlashOp::Erasing | FlashOp::Programming | FlashOp::Verifying | FlashOp::Writing
+        )
     }
     pub fn label(&self) -> &str {
         match self {
-            FlashOp::Idle        => "idle",
-            FlashOp::Erasing     => "erasing…",
+            FlashOp::Idle => "idle",
+            FlashOp::Erasing => "erasing…",
             FlashOp::Programming => "programming…",
-            FlashOp::Verifying   => "verifying…",
-            FlashOp::Writing     => "writing…",
-            FlashOp::Done        => "done ✓",
-            FlashOp::Error(_)    => "error",
+            FlashOp::Verifying => "verifying…",
+            FlashOp::Writing => "writing…",
+            FlashOp::Done => "done ✓",
+            FlashOp::Error(_) => "error",
         }
     }
 }
@@ -117,13 +128,24 @@ pub struct DiskChannel {
 
 pub enum ProbeCommand {
     ListProbes,
-    Flash { probe_idx: usize, target: String, path: PathBuf, verify: bool },
-    Erase { probe_idx: usize, target: String },
+    Flash {
+        probe_idx: usize,
+        target: String,
+        path: PathBuf,
+        verify: bool,
+    },
+    Erase {
+        probe_idx: usize,
+        target: String,
+    },
 }
 
 pub enum DiskCommand {
     ListDrives,
-    Write { drive_path: String, image_path: PathBuf },
+    Write {
+        drive_path: String,
+        image_path: PathBuf,
+    },
 }
 
 pub enum ProbeEvent {
@@ -150,8 +172,8 @@ impl Plugin for FlashPlugin {
     fn build(&self, app: &mut App) {
         let (probe_evt_tx, probe_evt_rx) = bounded::<ProbeEvent>(256);
         let (probe_cmd_tx, probe_cmd_rx) = bounded::<ProbeCommand>(16);
-        let (disk_evt_tx,  disk_evt_rx)  = bounded::<DiskEvent>(256);
-        let (disk_cmd_tx,  disk_cmd_rx)  = bounded::<DiskCommand>(16);
+        let (disk_evt_tx, disk_evt_rx) = bounded::<DiskEvent>(256);
+        let (disk_cmd_tx, disk_cmd_rx) = bounded::<DiskCommand>(16);
 
         std::thread::Builder::new()
             .name("probe-flash".into())
@@ -164,8 +186,14 @@ impl Plugin for FlashPlugin {
             .expect("spawn disk-flash");
 
         app.insert_resource(FlashState::default())
-            .insert_resource(ProbeChannel { rx: probe_evt_rx, tx: probe_cmd_tx })
-            .insert_resource(DiskChannel  { rx: disk_evt_rx,  tx: disk_cmd_tx  })
+            .insert_resource(ProbeChannel {
+                rx: probe_evt_rx,
+                tx: probe_cmd_tx,
+            })
+            .insert_resource(DiskChannel {
+                rx: disk_evt_rx,
+                tx: disk_cmd_tx,
+            })
             .add_systems(Startup, startup_scan)
             .add_systems(Update, (poll_probe_events, poll_disk_events));
     }
@@ -183,7 +211,9 @@ fn poll_probe_events(ch: Res<ProbeChannel>, mut state: ResMut<FlashState>, time:
     while let Ok(event) = ch.rx.try_recv() {
         match event {
             ProbeEvent::ProbeList(list) => {
-                if state.probe_idx >= list.len().max(1) { state.probe_idx = 0; }
+                if state.probe_idx >= list.len().max(1) {
+                    state.probe_idx = 0;
+                }
                 state.probes = list;
             }
             ProbeEvent::Progress { op, percent } => {
@@ -191,7 +221,11 @@ fn poll_probe_events(ch: Res<ProbeChannel>, mut state: ResMut<FlashState>, time:
                 state.progress = percent;
             }
             ProbeEvent::Log(text, kind) => {
-                state.log.push(LogLine { timestamp_ms: ms, text, kind });
+                state.log.push(LogLine {
+                    timestamp_ms: ms,
+                    text,
+                    kind,
+                });
             }
             ProbeEvent::Done => {
                 state.op = FlashOp::Done;
@@ -200,7 +234,11 @@ fn poll_probe_events(ch: Res<ProbeChannel>, mut state: ResMut<FlashState>, time:
             ProbeEvent::Error(e) => {
                 let msg = e.clone();
                 state.op = FlashOp::Error(e);
-                state.log.push(LogLine { timestamp_ms: ms, text: format!("✕ {msg}"), kind: LogKind::Error });
+                state.log.push(LogLine {
+                    timestamp_ms: ms,
+                    text: format!("✕ {msg}"),
+                    kind: LogKind::Error,
+                });
             }
         }
     }
@@ -211,15 +249,25 @@ fn poll_disk_events(ch: Res<DiskChannel>, mut state: ResMut<FlashState>, time: R
     while let Ok(event) = ch.rx.try_recv() {
         match event {
             DiskEvent::DriveList(list) => {
-                if state.drive_idx >= list.len().max(1) { state.drive_idx = 0; }
+                if state.drive_idx >= list.len().max(1) {
+                    state.drive_idx = 0;
+                }
                 state.drives = list;
             }
             DiskEvent::Progress { written, total } => {
                 state.op = FlashOp::Writing;
-                state.progress = if total > 0 { written as f32 / total as f32 } else { 0.0 };
+                state.progress = if total > 0 {
+                    written as f32 / total as f32
+                } else {
+                    0.0
+                };
             }
             DiskEvent::Log(text, kind) => {
-                state.log.push(LogLine { timestamp_ms: ms, text, kind });
+                state.log.push(LogLine {
+                    timestamp_ms: ms,
+                    text,
+                    kind,
+                });
             }
             DiskEvent::Done => {
                 state.op = FlashOp::Done;
@@ -229,7 +277,11 @@ fn poll_disk_events(ch: Res<DiskChannel>, mut state: ResMut<FlashState>, time: R
             DiskEvent::Error(e) => {
                 let msg = e.clone();
                 state.op = FlashOp::Error(e);
-                state.log.push(LogLine { timestamp_ms: ms, text: format!("✕ {msg}"), kind: LogKind::Error });
+                state.log.push(LogLine {
+                    timestamp_ms: ms,
+                    text: format!("✕ {msg}"),
+                    kind: LogKind::Error,
+                });
                 state.write_confirmed = false;
             }
         }
@@ -246,13 +298,18 @@ fn probe_thread(tx: Sender<ProbeEvent>, rx: Receiver<ProbeCommand>) {
                 ProbeCommand::ListProbes => {
                     let _ = tx.send(ProbeEvent::ProbeList(scan_probes()));
                 }
-                ProbeCommand::Flash { probe_idx, target, path, verify } => {
+                ProbeCommand::Flash {
+                    probe_idx,
+                    target,
+                    path,
+                    verify,
+                } => {
                     do_probe_flash(&tx, probe_idx, &target, &path, verify);
                 }
                 ProbeCommand::Erase { probe_idx, target } => {
                     do_probe_erase(&tx, probe_idx, &target);
                 }
-            }
+            },
         }
     }
 }
@@ -268,9 +325,11 @@ fn scan_probes() -> Vec<ProbeInfo> {
         .collect()
 }
 
-fn open_session(tx: &Sender<ProbeEvent>, probe_idx: usize, target: &str)
-    -> Option<probe_rs::Session>
-{
+fn open_session(
+    tx: &Sender<ProbeEvent>,
+    probe_idx: usize,
+    target: &str,
+) -> Option<probe_rs::Session> {
     let probes = probe_rs::probe::list::Lister::new().list_all();
     if probe_idx >= probes.len() {
         let _ = tx.send(ProbeEvent::Error(format!("probe #{probe_idx} not found")));
@@ -278,12 +337,21 @@ fn open_session(tx: &Sender<ProbeEvent>, probe_idx: usize, target: &str)
     }
     let probe = match probes[probe_idx].open() {
         Ok(p) => p,
-        Err(e) => { let _ = tx.send(ProbeEvent::Error(e.to_string())); return None; }
+        Err(e) => {
+            let _ = tx.send(ProbeEvent::Error(e.to_string()));
+            return None;
+        }
     };
-    let _ = tx.send(ProbeEvent::Log(format!("attaching to {target}…"), LogKind::System));
+    let _ = tx.send(ProbeEvent::Log(
+        format!("attaching to {target}…"),
+        LogKind::System,
+    ));
     match probe.attach(target, probe_rs::Permissions::default()) {
         Ok(s) => Some(s),
-        Err(e) => { let _ = tx.send(ProbeEvent::Error(e.to_string())); None }
+        Err(e) => {
+            let _ = tx.send(ProbeEvent::Error(e.to_string()));
+            None
+        }
     }
 }
 
@@ -291,90 +359,114 @@ fn make_progress(tx: Sender<ProbeEvent>) -> probe_rs::flashing::FlashProgress<'s
     use probe_rs::flashing::{FlashProgress, ProgressEvent, ProgressOperation};
 
     let mut erase_total: u64 = 0;
-    let mut erase_done:  u64 = 0;
-    let mut prog_total:  u64 = 0;
-    let mut prog_done:   u64 = 0;
+    let mut erase_done: u64 = 0;
+    let mut prog_total: u64 = 0;
+    let mut prog_done: u64 = 0;
     let mut verify_total: u64 = 0;
-    let mut verify_done:  u64 = 0;
+    let mut verify_done: u64 = 0;
 
-    FlashProgress::new(move |event| {
-        match event {
-            ProgressEvent::AddProgressBar { operation, total: Some(t) } => {
-                match operation {
-                    ProgressOperation::Erase   => erase_total  += t,
-                    ProgressOperation::Program => prog_total   += t,
-                    ProgressOperation::Verify  => verify_total += t,
-                    _ => {}
-                }
-            }
-            ProgressEvent::AddProgressBar { total: None, .. } => {}
-            ProgressEvent::Started(op) => {
-                let (stage, msg): (FlashOp, &str) = match op {
-                    ProgressOperation::Erase   => (FlashOp::Erasing,     "erasing flash…"),
-                    ProgressOperation::Program => (FlashOp::Programming,  "programming…"),
-                    ProgressOperation::Verify  => (FlashOp::Verifying,    "verifying…"),
-                    ProgressOperation::Fill    => (FlashOp::Erasing,      "reading for fill…"),
+    FlashProgress::new(move |event| match event {
+        ProgressEvent::AddProgressBar {
+            operation,
+            total: Some(t),
+        } => match operation {
+            ProgressOperation::Erase => erase_total += t,
+            ProgressOperation::Program => prog_total += t,
+            ProgressOperation::Verify => verify_total += t,
+            _ => {}
+        },
+        ProgressEvent::AddProgressBar { total: None, .. } => {}
+        ProgressEvent::Started(op) => {
+            let (stage, msg): (FlashOp, &str) = match op {
+                ProgressOperation::Erase => (FlashOp::Erasing, "erasing flash…"),
+                ProgressOperation::Program => (FlashOp::Programming, "programming…"),
+                ProgressOperation::Verify => (FlashOp::Verifying, "verifying…"),
+                ProgressOperation::Fill => (FlashOp::Erasing, "reading for fill…"),
+            };
+            let _ = tx.send(ProbeEvent::Progress {
+                op: stage,
+                percent: 0.0,
+            });
+            let _ = tx.send(ProbeEvent::Log(msg.into(), LogKind::System));
+        }
+        ProgressEvent::Progress {
+            operation, size, ..
+        } => match operation {
+            ProgressOperation::Erase => {
+                erase_done += size;
+                let pct = if erase_total > 0 {
+                    (erase_done as f32 / erase_total as f32).min(1.0)
+                } else {
+                    0.0
                 };
-                let _ = tx.send(ProbeEvent::Progress { op: stage, percent: 0.0 });
-                let _ = tx.send(ProbeEvent::Log(msg.into(), LogKind::System));
+                let _ = tx.send(ProbeEvent::Progress {
+                    op: FlashOp::Erasing,
+                    percent: pct,
+                });
             }
-            ProgressEvent::Progress { operation, size, .. } => {
-                match operation {
-                    ProgressOperation::Erase => {
-                        erase_done += size;
-                        let pct = if erase_total > 0 { (erase_done as f32 / erase_total as f32).min(1.0) } else { 0.0 };
-                        let _ = tx.send(ProbeEvent::Progress { op: FlashOp::Erasing, percent: pct });
-                    }
-                    ProgressOperation::Program => {
-                        prog_done += size;
-                        let pct = if prog_total > 0 { (prog_done as f32 / prog_total as f32).min(1.0) } else { 0.0 };
-                        let _ = tx.send(ProbeEvent::Progress { op: FlashOp::Programming, percent: pct });
-                    }
-                    ProgressOperation::Verify => {
-                        verify_done += size;
-                        let pct = if verify_total > 0 { (verify_done as f32 / verify_total as f32).min(1.0) } else { 0.0 };
-                        let _ = tx.send(ProbeEvent::Progress { op: FlashOp::Verifying, percent: pct });
-                    }
-                    _ => {}
-                }
-            }
-            ProgressEvent::Finished(op) => {
-                let msg = match op {
-                    ProgressOperation::Erase   => "erase done",
-                    ProgressOperation::Program => "programming done",
-                    ProgressOperation::Verify  => "verify done",
-                    ProgressOperation::Fill    => "fill done",
+            ProgressOperation::Program => {
+                prog_done += size;
+                let pct = if prog_total > 0 {
+                    (prog_done as f32 / prog_total as f32).min(1.0)
+                } else {
+                    0.0
                 };
-                let _ = tx.send(ProbeEvent::Log(msg.into(), LogKind::System));
+                let _ = tx.send(ProbeEvent::Progress {
+                    op: FlashOp::Programming,
+                    percent: pct,
+                });
             }
-            ProgressEvent::Failed(op) => {
-                let msg = match op {
-                    ProgressOperation::Erase   => "erase failed",
-                    ProgressOperation::Program => "programming failed",
-                    ProgressOperation::Verify  => "verify failed",
-                    _ => "operation failed",
+            ProgressOperation::Verify => {
+                verify_done += size;
+                let pct = if verify_total > 0 {
+                    (verify_done as f32 / verify_total as f32).min(1.0)
+                } else {
+                    0.0
                 };
-                let _ = tx.send(ProbeEvent::Error(msg.into()));
-            }
-            ProgressEvent::DiagnosticMessage { message } => {
-                let _ = tx.send(ProbeEvent::Log(message, LogKind::Info));
+                let _ = tx.send(ProbeEvent::Progress {
+                    op: FlashOp::Verifying,
+                    percent: pct,
+                });
             }
             _ => {}
+        },
+        ProgressEvent::Finished(op) => {
+            let msg = match op {
+                ProgressOperation::Erase => "erase done",
+                ProgressOperation::Program => "programming done",
+                ProgressOperation::Verify => "verify done",
+                ProgressOperation::Fill => "fill done",
+            };
+            let _ = tx.send(ProbeEvent::Log(msg.into(), LogKind::System));
         }
+        ProgressEvent::Failed(op) => {
+            let msg = match op {
+                ProgressOperation::Erase => "erase failed",
+                ProgressOperation::Program => "programming failed",
+                ProgressOperation::Verify => "verify failed",
+                _ => "operation failed",
+            };
+            let _ = tx.send(ProbeEvent::Error(msg.into()));
+        }
+        ProgressEvent::DiagnosticMessage { message } => {
+            let _ = tx.send(ProbeEvent::Log(message, LogKind::Info));
+        }
+        _ => {}
     })
 }
 
 fn format_for_path(path: &std::path::Path) -> probe_rs::flashing::Format {
     use probe_rs::flashing::{BinOptions, ElfOptions, Format};
-    let ext = path.extension()
+    let ext = path
+        .extension()
         .and_then(|e| e.to_str())
         .unwrap_or("")
         .to_lowercase();
     match ext.as_str() {
         "hex" | "ihex" => Format::Hex,
-        "bin"          => Format::Bin(BinOptions::default()),
-        "uf2"          => Format::Uf2,
-        _              => Format::Elf(ElfOptions::default()),
+        "bin" => Format::Bin(BinOptions::default()),
+        "uf2" => Format::Uf2,
+        _ => Format::Elf(ElfOptions::default()),
     }
 }
 
@@ -387,13 +479,22 @@ fn do_probe_flash(
 ) {
     use probe_rs::flashing::{download_file_with_options, DownloadOptions};
 
-    let Some(mut session) = open_session(tx, probe_idx, target) else { return };
-    let fname = path.file_name().unwrap_or_default().to_string_lossy().to_string();
-    let _ = tx.send(ProbeEvent::Log(format!("flashing {fname}…"), LogKind::System));
+    let Some(mut session) = open_session(tx, probe_idx, target) else {
+        return;
+    };
+    let fname = path
+        .file_name()
+        .unwrap_or_default()
+        .to_string_lossy()
+        .to_string();
+    let _ = tx.send(ProbeEvent::Log(
+        format!("flashing {fname}…"),
+        LogKind::System,
+    ));
 
     let mut options = DownloadOptions::default();
-    options.progress      = make_progress(tx.clone());
-    options.verify        = verify;
+    options.progress = make_progress(tx.clone());
+    options.verify = verify;
     options.do_chip_erase = true;
 
     match download_file_with_options(&mut session, path, format_for_path(path), options) {
@@ -404,21 +505,35 @@ fn do_probe_flash(
             }
             let _ = tx.send(ProbeEvent::Done);
         }
-        Err(e) => { let _ = tx.send(ProbeEvent::Error(e.to_string())); }
+        Err(e) => {
+            let _ = tx.send(ProbeEvent::Error(e.to_string()));
+        }
     }
 }
 
 fn do_probe_erase(tx: &Sender<ProbeEvent>, probe_idx: usize, target: &str) {
     use probe_rs::flashing::erase_all;
 
-    let Some(mut session) = open_session(tx, probe_idx, target) else { return };
-    let _ = tx.send(ProbeEvent::Log("mass-erasing chip…".into(), LogKind::System));
-    let _ = tx.send(ProbeEvent::Progress { op: FlashOp::Erasing, percent: 0.0 });
+    let Some(mut session) = open_session(tx, probe_idx, target) else {
+        return;
+    };
+    let _ = tx.send(ProbeEvent::Log(
+        "mass-erasing chip…".into(),
+        LogKind::System,
+    ));
+    let _ = tx.send(ProbeEvent::Progress {
+        op: FlashOp::Erasing,
+        percent: 0.0,
+    });
 
     let mut progress = make_progress(tx.clone());
     match erase_all(&mut session, &mut progress, false) {
-        Ok(()) => { let _ = tx.send(ProbeEvent::Done); }
-        Err(e) => { let _ = tx.send(ProbeEvent::Error(e.to_string())); }
+        Ok(()) => {
+            let _ = tx.send(ProbeEvent::Done);
+        }
+        Err(e) => {
+            let _ = tx.send(ProbeEvent::Error(e.to_string()));
+        }
     }
 }
 
@@ -431,7 +546,10 @@ fn disk_thread(tx: Sender<DiskEvent>, rx: Receiver<DiskCommand>) {
             Ok(DiskCommand::ListDrives) => {
                 let _ = tx.send(DiskEvent::DriveList(enumerate_drives()));
             }
-            Ok(DiskCommand::Write { drive_path, image_path }) => {
+            Ok(DiskCommand::Write {
+                drive_path,
+                image_path,
+            }) => {
                 do_write_image(&tx, &drive_path, &image_path);
             }
         }
@@ -439,22 +557,32 @@ fn disk_thread(tx: Sender<DiskEvent>, rx: Receiver<DiskCommand>) {
 }
 
 fn do_write_image(tx: &Sender<DiskEvent>, drive_path: &str, image_path: &PathBuf) {
-    let fname = image_path.file_name().unwrap_or_default().to_string_lossy().to_string();
+    let fname = image_path
+        .file_name()
+        .unwrap_or_default()
+        .to_string_lossy()
+        .to_string();
     let is_gz = fname.ends_with(".gz");
 
     let _ = tx.send(DiskEvent::Log(format!("opening {fname}…"), LogKind::System));
     let src = match std::fs::File::open(image_path) {
         Ok(f) => f,
-        Err(e) => { let _ = tx.send(DiskEvent::Error(e.to_string())); return; }
+        Err(e) => {
+            let _ = tx.send(DiskEvent::Error(e.to_string()));
+            return;
+        }
     };
 
-    let _ = tx.send(DiskEvent::Log(format!("opening {drive_path}…"), LogKind::System));
+    let _ = tx.send(DiskEvent::Log(
+        format!("opening {drive_path}…"),
+        LogKind::System,
+    ));
     let mut dst = match open_drive_write(drive_path) {
         Ok(f) => f,
         Err(e) => {
-            let _ = tx.send(DiskEvent::Error(
-                format!("cannot open drive: {e} — try running as administrator")
-            ));
+            let _ = tx.send(DiskEvent::Error(format!(
+                "cannot open drive: {e} — try running as administrator"
+            )));
             return;
         }
     };
@@ -471,12 +599,16 @@ fn do_write_image(tx: &Sender<DiskEvent>, drive_path: &str, image_path: &PathBuf
                 Ok(0) => break,
                 Ok(n) => {
                     if let Err(e) = dst.write_all(&buf[..n]) {
-                        let _ = tx.send(DiskEvent::Error(e.to_string())); return;
+                        let _ = tx.send(DiskEvent::Error(e.to_string()));
+                        return;
                     }
                     written += n as u64;
                     let _ = tx.send(DiskEvent::Progress { written, total: 0 });
                 }
-                Err(e) => { let _ = tx.send(DiskEvent::Error(e.to_string())); return; }
+                Err(e) => {
+                    let _ = tx.send(DiskEvent::Error(e.to_string()));
+                    return;
+                }
             }
         }
     } else {
@@ -487,46 +619,68 @@ fn do_write_image(tx: &Sender<DiskEvent>, drive_path: &str, image_path: &PathBuf
                 Ok(0) => break,
                 Ok(n) => {
                     if let Err(e) = dst.write_all(&buf[..n]) {
-                        let _ = tx.send(DiskEvent::Error(e.to_string())); return;
+                        let _ = tx.send(DiskEvent::Error(e.to_string()));
+                        return;
                     }
                     written += n as u64;
                     let _ = tx.send(DiskEvent::Progress { written, total });
                 }
-                Err(e) => { let _ = tx.send(DiskEvent::Error(e.to_string())); return; }
+                Err(e) => {
+                    let _ = tx.send(DiskEvent::Error(e.to_string()));
+                    return;
+                }
             }
         }
     }
 
     if let Err(e) = dst.flush() {
-        let _ = tx.send(DiskEvent::Error(e.to_string())); return;
+        let _ = tx.send(DiskEvent::Error(e.to_string()));
+        return;
     }
-    let _ = tx.send(DiskEvent::Log(format!("wrote {}", fmt_bytes(written as usize)), LogKind::System));
+    let _ = tx.send(DiskEvent::Log(
+        format!("wrote {}", fmt_bytes(written as usize)),
+        LogKind::System,
+    ));
     let _ = tx.send(DiskEvent::Done);
 }
 
 fn open_drive_write(path: &str) -> std::io::Result<std::fs::File> {
-    #[cfg(windows)] {
+    #[cfg(windows)]
+    {
         use std::os::windows::fs::OpenOptionsExt;
         std::fs::OpenOptions::new()
-            .read(true).write(true)
+            .read(true)
+            .write(true)
             .custom_flags(0x20000000u32) // FILE_FLAG_WRITE_THROUGH
             .open(path)
     }
-    #[cfg(not(windows))] {
+    #[cfg(not(windows))]
+    {
         std::fs::OpenOptions::new().write(true).open(path)
     }
 }
 
 fn enumerate_drives() -> Vec<DriveInfo> {
-    #[cfg(windows)]      { windows_disk::list() }
-    #[cfg(not(windows))] { posix_disk::list()   }
+    #[cfg(windows)]
+    {
+        windows_disk::list()
+    }
+    #[cfg(not(windows))]
+    {
+        posix_disk::list()
+    }
 }
 
 fn fmt_bytes(n: usize) -> String {
-    if n >= 1 << 30      { format!("{:.2} GB", n as f64 / (1u64 << 30) as f64) }
-    else if n >= 1 << 20 { format!("{:.1} MB", n as f64 / (1u64 << 20) as f64) }
-    else if n >= 1 << 10 { format!("{:.1} KB", n as f64 / (1u64 << 10) as f64) }
-    else                 { format!("{n} B") }
+    if n >= 1 << 30 {
+        format!("{:.2} GB", n as f64 / (1u64 << 30) as f64)
+    } else if n >= 1 << 20 {
+        format!("{:.1} MB", n as f64 / (1u64 << 20) as f64)
+    } else if n >= 1 << 10 {
+        format!("{:.1} KB", n as f64 / (1u64 << 10) as f64)
+    } else {
+        format!("{n} B")
+    }
 }
 
 // ── Windows disk enumeration ──────────────────────────────────────────────────
@@ -547,7 +701,9 @@ mod windows_disk {
             Ok(out) => {
                 let text = String::from_utf8_lossy(&out.stdout);
                 let mut drives: Vec<DriveInfo> = text.lines().filter_map(parse_line).collect();
-                if drives.is_empty() { drives = fallback(); }
+                if drives.is_empty() {
+                    drives = fallback();
+                }
                 drives
             }
             Err(_) => fallback(),
@@ -556,27 +712,47 @@ mod windows_disk {
 
     fn parse_line(line: &str) -> Option<DriveInfo> {
         let line = line.trim();
-        if line.is_empty() { return None; }
+        if line.is_empty() {
+            return None;
+        }
         let p: Vec<&str> = line.splitn(4, '|').collect();
-        if p.len() < 3 { return None; }
-        let path  = p[0].trim().to_string();
+        if p.len() < 3 {
+            return None;
+        }
+        let path = p[0].trim().to_string();
         let model = p[1].trim().to_string();
         let size: u64 = p[2].trim().parse().ok()?;
         let media = p.get(3).unwrap_or(&"").to_lowercase();
         let removable = media.contains("removable") || media.contains("external");
-        if path.is_empty() || size == 0 { return None; }
-        Some(DriveInfo { path, model, size_bytes: size, removable })
+        if path.is_empty() || size == 0 {
+            return None;
+        }
+        Some(DriveInfo {
+            path,
+            model,
+            size_bytes: size,
+            removable,
+        })
     }
 
     fn fallback() -> Vec<DriveInfo> {
         use std::io::Seek;
-        (0..16u32).filter_map(|i| {
-            let path = format!("\\\\.\\PhysicalDrive{i}");
-            let mut f = std::fs::File::open(&path).ok()?;
-            let size = f.seek(std::io::SeekFrom::End(0)).ok()?;
-            if size == 0 { return None; }
-            Some(DriveInfo { path, model: format!("Disk {i}"), size_bytes: size, removable: false })
-        }).collect()
+        (0..16u32)
+            .filter_map(|i| {
+                let path = format!("\\\\.\\PhysicalDrive{i}");
+                let mut f = std::fs::File::open(&path).ok()?;
+                let size = f.seek(std::io::SeekFrom::End(0)).ok()?;
+                if size == 0 {
+                    return None;
+                }
+                Some(DriveInfo {
+                    path,
+                    model: format!("Disk {i}"),
+                    size_bytes: size,
+                    removable: false,
+                })
+            })
+            .collect()
     }
 }
 
@@ -590,19 +766,26 @@ mod posix_disk {
         let Ok(out) = std::process::Command::new("lsblk")
             .args(["-dno", "NAME,MODEL,SIZE,RM", "--bytes"])
             .output()
-        else { return vec![] };
+        else {
+            return vec![];
+        };
 
-        String::from_utf8_lossy(&out.stdout).lines().filter_map(|line| {
-            let p: Vec<&str> = line.split_whitespace().collect();
-            if p.len() < 3 { return None; }
-            let size: u64 = p[2].parse().ok()?;
-            let removable = p.get(3).map(|r| *r == "1").unwrap_or(false);
-            Some(DriveInfo {
-                path: format!("/dev/{}", p[0]),
-                model: p[1].to_string(),
-                size_bytes: size,
-                removable,
+        String::from_utf8_lossy(&out.stdout)
+            .lines()
+            .filter_map(|line| {
+                let p: Vec<&str> = line.split_whitespace().collect();
+                if p.len() < 3 {
+                    return None;
+                }
+                let size: u64 = p[2].parse().ok()?;
+                let removable = p.get(3).map(|r| *r == "1").unwrap_or(false);
+                Some(DriveInfo {
+                    path: format!("/dev/{}", p[0]),
+                    model: p[1].to_string(),
+                    size_bytes: size,
+                    removable,
+                })
             })
-        }).collect()
+            .collect()
     }
 }

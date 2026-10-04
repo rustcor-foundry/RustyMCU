@@ -1,5 +1,5 @@
-use bevy::prelude::*;
 use crate::state::{ConnectedDevices, DebugProbeInfo, LinkStatus, UsbHsInfo};
+use bevy::prelude::*;
 
 // ── Known WCH / CH32 USB identifiers ─────────────────────────────────────────
 
@@ -77,10 +77,7 @@ impl Plugin for UsbPlugin {
     }
 }
 
-fn initial_usb_scan(
-    mut list: ResMut<UsbDeviceList>,
-    mut devices: ResMut<ConnectedDevices>,
-) {
+fn initial_usb_scan(mut list: ResMut<UsbDeviceList>, mut devices: ResMut<ConnectedDevices>) {
     list.start_timer();
     scan(&mut list);
     apply_to_connected(&list, &mut devices);
@@ -94,7 +91,10 @@ fn periodic_usb_scan(
     let finished = list
         .timer
         .as_mut()
-        .map(|t| { t.tick(time.delta()); t.just_finished() })
+        .map(|t| {
+            t.tick(time.delta());
+            t.just_finished()
+        })
         .unwrap_or(false);
 
     if finished {
@@ -134,7 +134,11 @@ fn apply_to_connected(list: &UsbDeviceList, devices: &mut ConnectedDevices) {
     let probe_dev = list.devices.iter().find(|d| d.is_link_probe());
     match probe_dev {
         Some(d) => {
-            let name = if d.product.is_empty() { "WCH-LinkE".to_string() } else { d.product.clone() };
+            let name = if d.product.is_empty() {
+                "WCH-LinkE".to_string()
+            } else {
+                d.product.clone()
+            };
             match &mut devices.debug_probe {
                 Some(p) => {
                     p.name = name;
@@ -160,7 +164,11 @@ fn apply_to_connected(list: &UsbDeviceList, devices: &mut ConnectedDevices) {
     let cdc_dev = list.devices.iter().find(|d| d.is_ch32_cdc());
     match cdc_dev {
         Some(d) => {
-            let product = if d.product.is_empty() { "USB HS".to_string() } else { d.product.clone() };
+            let product = if d.product.is_empty() {
+                "USB HS".to_string()
+            } else {
+                d.product.clone()
+            };
             match &mut devices.usb_hs {
                 Some(u) => {
                     u.class = product;

@@ -1,9 +1,12 @@
+use crate::plugins::defmt_decode::DefmtState;
+use crate::state::{
+    ConnectedDevices, Encoding, LinkStatus, LogKind, LogLine, PlotState, SerialBuffer,
+    SerialDevInfo, SerialInput,
+};
 use bevy::prelude::*;
 use crossbeam_channel::{bounded, Receiver, Sender};
 use std::io::Write;
 use std::time::Duration;
-use crate::plugins::defmt_decode::DefmtState;
-use crate::state::{ConnectedDevices, Encoding, LinkStatus, LogKind, LogLine, PlotState, SerialBuffer, SerialDevInfo, SerialInput};
 
 // ── Channel types ─────────────────────────────────────────────────────────────
 
@@ -24,7 +27,10 @@ pub enum SerialEvent {
 }
 
 pub enum SerialCommand {
-    Connect { port: String, baud: u32 },
+    Connect {
+        port: String,
+        baud: u32,
+    },
     Disconnect,
     Send(Vec<u8>),
     /// Change baud rate on the open port without reopening it.
@@ -74,7 +80,11 @@ pub struct ReconnectState {
 
 impl Default for ReconnectState {
     fn default() -> Self {
-        Self { target: None, waiting: false, enabled: true }
+        Self {
+            target: None,
+            waiting: false,
+            enabled: true,
+        }
     }
 }
 
@@ -97,9 +107,15 @@ impl Plugin for SerialPlugin {
             .insert_resource(PortScanner::default())
             .insert_resource(ReconnectState::default())
             .insert_resource(PlotState::default())
-            .insert_resource(SerialChannel { rx: event_rx, tx: cmd_tx })
+            .insert_resource(SerialChannel {
+                rx: event_rx,
+                tx: cmd_tx,
+            })
             .add_systems(Startup, initial_port_scan)
-            .add_systems(Update, (poll_serial_events, periodic_port_scan, watch_baud_change));
+            .add_systems(
+                Update,
+                (poll_serial_events, periodic_port_scan, watch_baud_change),
+            );
     }
 }
 
@@ -174,7 +190,9 @@ fn watch_baud_change(
     mut buf: ResMut<SerialBuffer>,
     time: Res<Time>,
 ) {
-    let Some(ref mut s) = devices.serial else { return };
+    let Some(ref mut s) = devices.serial else {
+        return;
+    };
     if !matches!(s.status, LinkStatus::Connected) || s.baud == scanner.baud {
         return;
     }
@@ -286,7 +304,11 @@ pub fn poll_serial_events(
                         // Feed raw bytes through the defmt decoder.
                         for (text, kind) in defmt.feed(&bytes) {
                             plot.ingest(&text);
-                            buf.push(LogLine { timestamp_ms: ms, text, kind });
+                            buf.push(LogLine {
+                                timestamp_ms: ms,
+                                text,
+                                kind,
+                            });
                         }
                     }
                     _ if buf.hex_view => {
@@ -308,7 +330,11 @@ pub fn poll_serial_events(
                                     if !text.is_empty() {
                                         plot.ingest(&text);
                                         let kind = classify(&text);
-                                        buf.push(LogLine { timestamp_ms: ms, text, kind });
+                                        buf.push(LogLine {
+                                            timestamp_ms: ms,
+                                            text,
+                                            kind,
+                                        });
                                     }
                                 }
                                 b'\r' => {}
@@ -408,13 +434,25 @@ pub fn hex_dump_lines(bytes: &[u8]) -> Vec<String> {
                 .iter()
                 .enumerate()
                 .flat_map(|(j, b)| {
-                    let sep = if j == 8 { "  " } else if j == 0 { "" } else { " " };
+                    let sep = if j == 8 {
+                        "  "
+                    } else if j == 0 {
+                        ""
+                    } else {
+                        " "
+                    };
                     [sep.to_string(), format!("{b:02x}")]
                 })
                 .collect();
             let ascii: String = chunk
                 .iter()
-                .map(|&b| if (0x20..0x7f).contains(&b) { b as char } else { '.' })
+                .map(|&b| {
+                    if (0x20..0x7f).contains(&b) {
+                        b as char
+                    } else {
+                        '.'
+                    }
+                })
                 .collect();
             // Pad hex column to fixed width (16 bytes × 3 chars + 1 extra space = 49)
             format!("{offset:04x}:  {hex:<49}  |{ascii}|")

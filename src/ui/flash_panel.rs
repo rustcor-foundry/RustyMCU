@@ -1,32 +1,29 @@
-use bevy_egui::egui::{self, Color32, ProgressBar, RichText, ScrollArea, Ui};
-use crate::plugins::flash::{DiskChannel, DiskCommand, FlashFile, FlashMode, FlashOp, FlashState, ProbeChannel, ProbeCommand};
-use crate::state::LogKind;
 use super::{export, theme};
+use crate::plugins::flash::{
+    DiskChannel, DiskCommand, FlashFile, FlashMode, FlashOp, FlashState, ProbeChannel, ProbeCommand,
+};
+use crate::state::LogKind;
+use bevy_egui::egui::{self, Color32, ProgressBar, RichText, ScrollArea, Ui};
 
-const GREEN:  Color32 = theme::ACCENT;
+const GREEN: Color32 = theme::ACCENT;
 const ORANGE: Color32 = theme::WARN;
-const RED:    Color32 = theme::DANGER;
-const GRAY:   Color32 = theme::TEXT3;
+const RED: Color32 = theme::DANGER;
+const GRAY: Color32 = theme::TEXT3;
 
 /// Stage → progress bar color, using the Fathom semantic palette.
 fn op_color(op: &FlashOp) -> Color32 {
     match op {
-        FlashOp::Erasing     => theme::WARN,
+        FlashOp::Erasing => theme::WARN,
         FlashOp::Programming => theme::INFO,
-        FlashOp::Verifying   => theme::ACCENT_DIM,
-        FlashOp::Writing     => theme::INFO,
-        FlashOp::Done        => theme::ACCENT,
-        FlashOp::Error(_)    => theme::DANGER,
-        FlashOp::Idle        => theme::TEXT3,
+        FlashOp::Verifying => theme::ACCENT_DIM,
+        FlashOp::Writing => theme::INFO,
+        FlashOp::Done => theme::ACCENT,
+        FlashOp::Error(_) => theme::DANGER,
+        FlashOp::Idle => theme::TEXT3,
     }
 }
 
-pub fn draw(
-    ui: &mut Ui,
-    state: &mut FlashState,
-    probe_ch: &ProbeChannel,
-    disk_ch: &DiskChannel,
-) {
+pub fn draw(ui: &mut Ui, state: &mut FlashState, probe_ch: &ProbeChannel, disk_ch: &DiskChannel) {
     let busy = state.op.is_busy();
 
     // ── Log at bottom ─────────────────────────────────────────────────────────
@@ -39,7 +36,11 @@ pub fn draw(
             ui.horizontal(|ui| {
                 ui.label(RichText::new("Log").size(11.0).color(GRAY));
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    if ui.small_button("💾").on_hover_text("Export log (txt / csv / json)").clicked() {
+                    if ui
+                        .small_button("💾")
+                        .on_hover_text("Export log (txt / csv / json)")
+                        .clicked()
+                    {
                         export::log_dialog("flash_log.txt", &state.log.iter().collect::<Vec<_>>());
                     }
                 });
@@ -57,12 +58,17 @@ pub fn draw(
                         .show_rows(ui, row_h, state.log.len(), |ui, range| {
                             for line in &state.log[range] {
                                 let color = match line.kind {
-                                    LogKind::Error  => RED,
-                                    LogKind::Warn   => ORANGE,
+                                    LogKind::Error => RED,
+                                    LogKind::Warn => ORANGE,
                                     LogKind::System => theme::TEXT3,
-                                    LogKind::Info   => theme::TEXT2,
+                                    LogKind::Info => theme::TEXT2,
                                 };
-                                ui.label(RichText::new(&line.text).monospace().size(11.0).color(color));
+                                ui.label(
+                                    RichText::new(&line.text)
+                                        .monospace()
+                                        .size(11.0)
+                                        .color(color),
+                                );
                             }
                         });
                 });
@@ -74,10 +80,16 @@ pub fn draw(
         ui.horizontal(|ui| {
             ui.add_space(12.0);
             ui.add_enabled_ui(!busy, |ui| {
-                if ui.selectable_label(state.mode == FlashMode::Probe, "MCU Flash").clicked() {
+                if ui
+                    .selectable_label(state.mode == FlashMode::Probe, "MCU Flash")
+                    .clicked()
+                {
                     state.mode = FlashMode::Probe;
                 }
-                if ui.selectable_label(state.mode == FlashMode::Disk, "SD / eMMC").clicked() {
+                if ui
+                    .selectable_label(state.mode == FlashMode::Disk, "SD / eMMC")
+                    .clicked()
+                {
                     state.mode = FlashMode::Disk;
                 }
             });
@@ -87,7 +99,7 @@ pub fn draw(
 
         match state.mode {
             FlashMode::Probe => draw_probe_mode(ui, state, probe_ch, busy),
-            FlashMode::Disk  => draw_disk_mode(ui, state, disk_ch, busy),
+            FlashMode::Disk => draw_disk_mode(ui, state, disk_ch, busy),
         }
 
         // ── Progress ──────────────────────────────────────────────────────────
@@ -104,7 +116,9 @@ pub fn draw(
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                             ui.label(
                                 RichText::new(format!("{:.0}%", state.progress * 100.0))
-                                    .size(12.0).monospace().color(color),
+                                    .size(12.0)
+                                    .monospace()
+                                    .color(color),
                             );
                         });
                     });
@@ -135,18 +149,15 @@ pub fn draw(
     });
 }
 
-fn draw_probe_mode(
-    ui: &mut Ui,
-    state: &mut FlashState,
-    probe_ch: &ProbeChannel,
-    busy: bool,
-) {
+fn draw_probe_mode(ui: &mut Ui, state: &mut FlashState, probe_ch: &ProbeChannel, busy: bool) {
     // Probe selection
     ui.horizontal(|ui| {
         ui.add_space(12.0);
         ui.label(RichText::new("Probe ").size(12.0).color(GRAY));
         ui.add_enabled_ui(!busy, |ui| {
-            let label = state.probes.get(state.probe_idx)
+            let label = state
+                .probes
+                .get(state.probe_idx)
                 .map(|p| format!("{} ({})", p.identifier, p.vid_pid))
                 .unwrap_or_else(|| "no probe found".into());
             egui::ComboBox::from_id_salt("probe_select")
@@ -188,7 +199,9 @@ fn draw_probe_mode(
         ui.label(RichText::new("File   ").size(12.0).color(GRAY));
         ui.add_space(4.0);
 
-        let name_text = state.probe_file.as_ref()
+        let name_text = state
+            .probe_file
+            .as_ref()
             .map(|f| f.name.clone())
             .unwrap_or_else(|| "no file selected".into());
         ui.add(
@@ -196,7 +209,11 @@ fn draw_probe_mode(
                 .desired_width(220.0)
                 .interactive(false)
                 .font(egui::TextStyle::Monospace)
-                .text_color(if state.probe_file.is_some() { theme::TEXT } else { GRAY }),
+                .text_color(if state.probe_file.is_some() {
+                    theme::TEXT
+                } else {
+                    GRAY
+                }),
         );
 
         ui.add_enabled_ui(!busy, |ui| {
@@ -207,12 +224,25 @@ fn draw_probe_mode(
                     .add_filter("All files", &["*"])
                     .pick_file()
                 {
-                    let name = path.file_name().unwrap_or_default().to_string_lossy().into_owned();
+                    let name = path
+                        .file_name()
+                        .unwrap_or_default()
+                        .to_string_lossy()
+                        .into_owned();
                     let size = path.metadata().map(|m| m.len()).unwrap_or(0);
-                    let ext  = path.extension().and_then(|e| e.to_str()).unwrap_or("").to_lowercase();
+                    let ext = path
+                        .extension()
+                        .and_then(|e| e.to_str())
+                        .unwrap_or("")
+                        .to_lowercase();
                     let is_elf = !matches!(ext.as_str(), "bin" | "hex" | "uf2");
-                    state.probe_file = Some(FlashFile { path, name, size, is_elf });
-                    state.op         = FlashOp::Idle;
+                    state.probe_file = Some(FlashFile {
+                        path,
+                        name,
+                        size,
+                        is_elf,
+                    });
+                    state.op = FlashOp::Idle;
                 }
             }
         });
@@ -221,7 +251,9 @@ fn draw_probe_mode(
             let tag = if f.is_elf { "ELF" } else { "bin" };
             ui.label(
                 RichText::new(format!("{tag} · {}", fmt_size(f.size)))
-                    .size(11.0).color(GRAY).monospace(),
+                    .size(11.0)
+                    .color(GRAY)
+                    .monospace(),
             );
         }
     });
@@ -231,11 +263,11 @@ fn draw_probe_mode(
     ui.add_space(8.0);
 
     // Action buttons
-    let has_file   = state.probe_file.is_some();
-    let has_probe  = !state.probes.is_empty();
+    let has_file = state.probe_file.is_some();
+    let has_probe = !state.probes.is_empty();
     let has_target = !state.target.is_empty();
-    let can_flash  = has_file && has_probe && has_target && !busy;
-    let can_erase  = has_probe && has_target && !busy;
+    let can_flash = has_file && has_probe && has_target && !busy;
+    let can_erase = has_probe && has_target && !busy;
 
     ui.horizontal(|ui| {
         ui.add_space(12.0);
@@ -279,18 +311,15 @@ fn draw_probe_mode(
     });
 }
 
-fn draw_disk_mode(
-    ui: &mut Ui,
-    state: &mut FlashState,
-    disk_ch: &DiskChannel,
-    busy: bool,
-) {
+fn draw_disk_mode(ui: &mut Ui, state: &mut FlashState, disk_ch: &DiskChannel, busy: bool) {
     // Drive selection
     ui.horizontal(|ui| {
         ui.add_space(12.0);
         ui.label(RichText::new("Drive ").size(12.0).color(GRAY));
         ui.add_enabled_ui(!busy, |ui| {
-            let label = state.drives.get(state.drive_idx)
+            let label = state
+                .drives
+                .get(state.drive_idx)
                 .map(|d| d.display())
                 .unwrap_or_else(|| "no drives found".into());
             egui::ComboBox::from_id_salt("drive_select")
@@ -315,7 +344,9 @@ fn draw_disk_mode(
         ui.label(RichText::new("Image ").size(12.0).color(GRAY));
         ui.add_space(4.0);
 
-        let name_text = state.disk_file.as_ref()
+        let name_text = state
+            .disk_file
+            .as_ref()
             .map(|f| f.name.clone())
             .unwrap_or_else(|| "no file selected".into());
         ui.add(
@@ -323,7 +354,11 @@ fn draw_disk_mode(
                 .desired_width(220.0)
                 .interactive(false)
                 .font(egui::TextStyle::Monospace)
-                .text_color(if state.disk_file.is_some() { theme::TEXT } else { GRAY }),
+                .text_color(if state.disk_file.is_some() {
+                    theme::TEXT
+                } else {
+                    GRAY
+                }),
         );
 
         ui.add_enabled_ui(!busy, |ui| {
@@ -334,21 +369,36 @@ fn draw_disk_mode(
                     .add_filter("All files", &["*"])
                     .pick_file()
                 {
-                    let name = path.file_name().unwrap_or_default().to_string_lossy().into_owned();
+                    let name = path
+                        .file_name()
+                        .unwrap_or_default()
+                        .to_string_lossy()
+                        .into_owned();
                     let size = path.metadata().map(|m| m.len()).unwrap_or(0);
-                    state.disk_file = Some(FlashFile { path, name, size, is_elf: false });
+                    state.disk_file = Some(FlashFile {
+                        path,
+                        name,
+                        size,
+                        is_elf: false,
+                    });
                     state.write_confirmed = false;
                 }
             }
         });
 
         if let Some(ref f) = state.disk_file {
-            let tag = if f.name.ends_with(".gz") { "gzip" }
-                      else if f.name.ends_with(".iso") { "ISO" }
-                      else { "raw" };
+            let tag = if f.name.ends_with(".gz") {
+                "gzip"
+            } else if f.name.ends_with(".iso") {
+                "ISO"
+            } else {
+                "raw"
+            };
             ui.label(
                 RichText::new(format!("{tag} · {}", fmt_size(f.size)))
-                    .size(11.0).color(GRAY).monospace(),
+                    .size(11.0)
+                    .color(GRAY)
+                    .monospace(),
             );
         }
     });
@@ -359,7 +409,8 @@ fn draw_disk_mode(
         ui.add_space(12.0);
         ui.label(
             RichText::new("⚠ This will OVERWRITE the selected drive. All data will be lost.")
-                .size(11.0).color(ORANGE),
+                .size(11.0)
+                .color(ORANGE),
         );
     });
     ui.add_space(4.0);
@@ -374,7 +425,7 @@ fn draw_disk_mode(
     ui.separator();
     ui.add_space(8.0);
 
-    let has_file  = state.disk_file.is_some();
+    let has_file = state.disk_file.is_some();
     let has_drive = !state.drives.is_empty();
     let can_write = has_file && has_drive && state.write_confirmed && !busy;
 
@@ -385,7 +436,10 @@ fn draw_disk_mode(
             if theme::accent_button(ui, "↓ Write Image").clicked() {
                 let drive_path = state.drives[state.drive_idx].path.clone();
                 let image_path = state.disk_file.as_ref().unwrap().path.clone();
-                let _ = disk_ch.tx.send(DiskCommand::Write { drive_path, image_path });
+                let _ = disk_ch.tx.send(DiskCommand::Write {
+                    drive_path,
+                    image_path,
+                });
             }
         });
 
@@ -396,8 +450,13 @@ fn draw_disk_mode(
 }
 
 fn fmt_size(bytes: u64) -> String {
-    if bytes >= 1 << 30      { format!("{:.1} GB", bytes as f64 / (1u64 << 30) as f64) }
-    else if bytes >= 1 << 20 { format!("{:.0} MB", bytes as f64 / (1u64 << 20) as f64) }
-    else if bytes >= 1 << 10 { format!("{:.0} KB", bytes as f64 / (1u64 << 10) as f64) }
-    else                      { format!("{bytes} B") }
+    if bytes >= 1 << 30 {
+        format!("{:.1} GB", bytes as f64 / (1u64 << 30) as f64)
+    } else if bytes >= 1 << 20 {
+        format!("{:.0} MB", bytes as f64 / (1u64 << 20) as f64)
+    } else if bytes >= 1 << 10 {
+        format!("{:.0} KB", bytes as f64 / (1u64 << 10) as f64)
+    } else {
+        format!("{bytes} B")
+    }
 }

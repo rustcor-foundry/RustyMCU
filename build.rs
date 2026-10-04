@@ -34,11 +34,11 @@ fn png_to_ico(src: &str, dest: &std::path::Path) {
     ico.extend_from_slice(&0u16.to_le_bytes()); // reserved
     ico.extend_from_slice(&1u16.to_le_bytes()); // type = ICO
     ico.extend_from_slice(&1u16.to_le_bytes()); // image count = 1
-    ico.push(0);                                 // width  (0 → 256)
-    ico.push(0);                                 // height (0 → 256)
-    ico.push(0);                                 // colour count
-    ico.push(0);                                 // reserved
-    ico.extend_from_slice(&1u16.to_le_bytes());  // colour planes
+    ico.push(0); // width  (0 → 256)
+    ico.push(0); // height (0 → 256)
+    ico.push(0); // colour count
+    ico.push(0); // reserved
+    ico.extend_from_slice(&1u16.to_le_bytes()); // colour planes
     ico.extend_from_slice(&32u16.to_le_bytes()); // bits per pixel
     ico.extend_from_slice(&data_size.to_le_bytes());
     ico.extend_from_slice(&data_offset.to_le_bytes());

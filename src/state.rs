@@ -57,7 +57,11 @@ impl SerialBuffer {
             Box::new(self.lines.iter())
         } else {
             let f = self.filter.to_lowercase();
-            Box::new(self.lines.iter().filter(move |l| l.text.to_lowercase().contains(&f)))
+            Box::new(
+                self.lines
+                    .iter()
+                    .filter(move |l| l.text.to_lowercase().contains(&f)),
+            )
         }
     }
 
@@ -211,7 +215,12 @@ pub struct PlotState {
 
 impl Default for PlotState {
     fn default() -> Self {
-        Self { series: Vec::new(), sample_idx: 0, paused: false, window: 500 }
+        Self {
+            series: Vec::new(),
+            sample_idx: 0,
+            paused: false,
+            window: 500,
+        }
     }
 }
 
@@ -245,11 +254,16 @@ impl PlotState {
 
         let x = self.sample_idx as f64;
         for (i, (label, v)) in values.into_iter().enumerate() {
-            let name = label.map(str::to_owned).unwrap_or_else(|| format!("S{}", i + 1));
+            let name = label
+                .map(str::to_owned)
+                .unwrap_or_else(|| format!("S{}", i + 1));
             let series = match self.series.iter_mut().find(|s| s.name == name) {
                 Some(s) => s,
                 None => {
-                    self.series.push(PlotSeries { name, points: VecDeque::new() });
+                    self.series.push(PlotSeries {
+                        name,
+                        points: VecDeque::new(),
+                    });
                     self.series.last_mut().unwrap()
                 }
             };
@@ -325,4 +339,3 @@ pub struct ChipInfo {
     pub ram_kb: u32,
     pub fw_version: String,
 }
-

@@ -1,8 +1,8 @@
-use bevy_egui::egui::{self, Color32, CursorIcon, Id, RichText, Stroke, Ui};
+use super::theme;
 use crate::plugins::network::NetworkState;
 use crate::plugins::serial::PortScanner;
 use crate::state::{ActiveTab, ConnectedDevices, LinkStatus};
-use super::theme;
+use bevy_egui::egui::{self, Color32, CursorIcon, Id, RichText, Stroke, Ui};
 
 pub fn draw(
     ui: &mut Ui,
@@ -15,10 +15,22 @@ pub fn draw(
     ui.add_space(14.0);
     ui.horizontal(|ui| {
         ui.add_space(16.0);
-        ui.label(RichText::new("Rusty").size(16.0).strong().monospace().color(theme::TEXT));
+        ui.label(
+            RichText::new("Rusty")
+                .size(16.0)
+                .strong()
+                .monospace()
+                .color(theme::TEXT),
+        );
         // Tight kerning between the two halves of the wordmark.
         ui.add_space(-8.0);
-        ui.label(RichText::new("MCU").size(16.0).strong().monospace().color(theme::ACCENT));
+        ui.label(
+            RichText::new("MCU")
+                .size(16.0)
+                .strong()
+                .monospace()
+                .color(theme::ACCENT),
+        );
     });
     ui.add_space(12.0);
     ui.separator();
@@ -30,8 +42,11 @@ pub fn draw(
 
     if let Some(probe) = &devices.debug_probe {
         if device_card(
-            ui, "probe_card",
-            &probe.status, &probe.name, &probe.transport,
+            ui,
+            "probe_card",
+            &probe.status,
+            &probe.name,
+            &probe.transport,
             *active_tab == ActiveTab::Flash,
         ) {
             *active_tab = ActiveTab::Flash;
@@ -41,8 +56,11 @@ pub fn draw(
     if let Some(serial) = &devices.serial {
         let subtitle = format!("{} · {}", serial.baud, serial.framing);
         if device_card(
-            ui, "serial_card",
-            &serial.status, &serial.port, &subtitle,
+            ui,
+            "serial_card",
+            &serial.status,
+            &serial.port,
+            &subtitle,
             *active_tab == ActiveTab::Serial,
         ) {
             *active_tab = ActiveTab::Serial;
@@ -56,8 +74,11 @@ pub fn draw(
 
     if let Some(eth) = &devices.ethernet {
         if device_card(
-            ui, "eth_card",
-            &eth.status, &eth.ip, &eth.speed,
+            ui,
+            "eth_card",
+            &eth.status,
+            &eth.ip,
+            &eth.speed,
             *active_tab == ActiveTab::Network,
         ) {
             *active_tab = ActiveTab::Network;
@@ -68,8 +89,11 @@ pub fn draw(
 
     if let Some(usb) = &devices.usb_hs {
         if device_card(
-            ui, "usb_card",
-            &usb.status, &usb.class, &usb.note,
+            ui,
+            "usb_card",
+            &usb.status,
+            &usb.class,
+            &usb.note,
             *active_tab == ActiveTab::Usb,
         ) {
             *active_tab = ActiveTab::Usb;
@@ -83,7 +107,12 @@ pub fn draw(
     {
         ui.horizontal(|ui| {
             ui.add_space(16.0);
-            ui.label(RichText::new("no devices detected").size(11.0).italics().color(theme::TEXT3));
+            ui.label(
+                RichText::new("no devices detected")
+                    .size(11.0)
+                    .italics()
+                    .color(theme::TEXT3),
+            );
         });
     }
 
@@ -98,13 +127,23 @@ pub fn draw(
                 ui.vertical(|ui| {
                     ui.label(RichText::new("CHIP").size(10.0).color(theme::TEXT3));
                     ui.add_space(4.0);
-                    ui.label(RichText::new(&chip.part).size(11.0).monospace().color(theme::TEXT2));
+                    ui.label(
+                        RichText::new(&chip.part)
+                            .size(11.0)
+                            .monospace()
+                            .color(theme::TEXT2),
+                    );
                     for line in [
                         chip.core.as_str(),
                         &format!("{}K flash · {}K RAM", chip.flash_kb, chip.ram_kb),
                         &format!("fw {}", chip.fw_version),
                     ] {
-                        ui.label(RichText::new(line).size(11.0).monospace().color(theme::TEXT3));
+                        ui.label(
+                            RichText::new(line)
+                                .size(11.0)
+                                .monospace()
+                                .color(theme::TEXT3),
+                        );
                     }
                     ui.add_space(8.0);
                 });
@@ -148,22 +187,33 @@ fn device_card(
             ui.set_min_width(168.0);
             ui.horizontal(|ui| {
                 // Status dot with phosphor glow when up.
-                let (rect, _) =
-                    ui.allocate_exact_size(egui::vec2(9.0, 14.0), egui::Sense::hover());
+                let (rect, _) = ui.allocate_exact_size(egui::vec2(9.0, 14.0), egui::Sense::hover());
                 if status.is_up() {
                     ui.painter().circle_filled(
-                        rect.center(), 5.5,
+                        rect.center(),
+                        5.5,
                         Color32::from_rgba_unmultiplied(0x00, 0xe8, 0x7a, 40),
                     );
-                    ui.painter().circle_filled(rect.center(), 3.0, theme::ACCENT);
+                    ui.painter()
+                        .circle_filled(rect.center(), 3.0, theme::ACCENT);
                 } else {
                     ui.painter().circle_filled(rect.center(), 3.0, theme::TEXT3);
                 }
                 ui.add_space(4.0);
 
                 ui.vertical(|ui| {
-                    let name_color = if status.is_up() { theme::TEXT } else { theme::TEXT3 };
-                    ui.label(RichText::new(name).size(12.0).strong().monospace().color(name_color));
+                    let name_color = if status.is_up() {
+                        theme::TEXT
+                    } else {
+                        theme::TEXT3
+                    };
+                    ui.label(
+                        RichText::new(name)
+                            .size(12.0)
+                            .strong()
+                            .monospace()
+                            .color(name_color),
+                    );
                     ui.label(RichText::new(subtitle).size(11.0).color(theme::TEXT3));
                 });
             });

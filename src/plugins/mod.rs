@@ -1,5 +1,5 @@
-use bevy::prelude::*;
 use crate::state::ConnectedDevices;
+use bevy::prelude::*;
 
 pub mod defmt_decode;
 pub mod flash;

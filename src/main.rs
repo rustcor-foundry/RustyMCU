@@ -21,7 +21,7 @@ fn main() {
             DefaultPlugins.set(WindowPlugin {
                 primary_window: Some(Window {
                     title: "RustyMCU".into(),
-                    resolution: (1100.0, 580.0).into(),
+                    resolution: (1100.0_f32, 580.0_f32).into(),
                     ..default()
                 }),
                 // The tray plugin intercepts close requests; we handle quitting

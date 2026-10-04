@@ -92,7 +92,7 @@ pub fn draw(ui: &mut Ui, state: &mut PlotState) {
                     Line::new(PlotPoints::from(pts))
                         .name(&series.name)
                         .color(SERIES_COLORS[i % SERIES_COLORS.len()])
-                        .width(1.5),
+                        .width(1.5_f32),
                 );
             }
         });

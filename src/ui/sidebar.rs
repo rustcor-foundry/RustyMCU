@@ -133,9 +133,9 @@ fn device_card(
     active: bool,
 ) -> bool {
     let (fill, base_border) = if active {
-        (theme::BG3, Stroke::new(1.5, theme::ACCENT_DIM))
+        (theme::BG3, Stroke::new(1.5_f32, theme::ACCENT_DIM))
     } else {
-        (theme::BG2, Stroke::new(1.0, theme::BORDER_LIGHT))
+        (theme::BG2, Stroke::new(1.0_f32, theme::BORDER_LIGHT))
     };
 
     let inner = egui::Frame::none()
@@ -179,7 +179,7 @@ fn device_card(
         ui.painter().rect_stroke(
             inner.response.rect,
             6.0,
-            Stroke::new(1.0, theme::BORDER),
+            Stroke::new(1.0_f32, theme::BORDER),
         );
     }
 

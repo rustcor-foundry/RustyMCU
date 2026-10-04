@@ -42,40 +42,40 @@ pub fn apply(ctx: &egui::Context) {
     v.code_bg_color = BG_DEEP;
     v.hyperlink_color = ACCENT;
     v.selection.bg_fill = Color32::from_rgba_unmultiplied(0x00, 0xe8, 0x7a, 50);
-    v.selection.stroke = Stroke::new(1.0, ACCENT);
+    v.selection.stroke = Stroke::new(1.0_f32, ACCENT);
     v.window_rounding = ROUND;
     v.menu_rounding = ROUND;
 
     // Labels, separators
     v.widgets.noninteractive.bg_fill = BG2;
     v.widgets.noninteractive.weak_bg_fill = BG2;
-    v.widgets.noninteractive.bg_stroke = Stroke::new(1.0, BORDER_LIGHT);
-    v.widgets.noninteractive.fg_stroke = Stroke::new(1.0, TEXT2);
+    v.widgets.noninteractive.bg_stroke = Stroke::new(1.0_f32, BORDER_LIGHT);
+    v.widgets.noninteractive.fg_stroke = Stroke::new(1.0_f32, TEXT2);
     v.widgets.noninteractive.rounding = ROUND;
 
     // Buttons, combo boxes at rest
     v.widgets.inactive.bg_fill = BG4;
     v.widgets.inactive.weak_bg_fill = BG3;
-    v.widgets.inactive.bg_stroke = Stroke::new(1.0, BORDER);
-    v.widgets.inactive.fg_stroke = Stroke::new(1.0, TEXT);
+    v.widgets.inactive.bg_stroke = Stroke::new(1.0_f32, BORDER);
+    v.widgets.inactive.fg_stroke = Stroke::new(1.0_f32, TEXT);
     v.widgets.inactive.rounding = ROUND;
 
     v.widgets.hovered.bg_fill = BG3;
     v.widgets.hovered.weak_bg_fill = BG4;
-    v.widgets.hovered.bg_stroke = Stroke::new(1.0, TEXT3);
-    v.widgets.hovered.fg_stroke = Stroke::new(1.5, TEXT);
+    v.widgets.hovered.bg_stroke = Stroke::new(1.0_f32, TEXT3);
+    v.widgets.hovered.fg_stroke = Stroke::new(1.5_f32, TEXT);
     v.widgets.hovered.rounding = ROUND;
 
     v.widgets.active.bg_fill = BG4;
     v.widgets.active.weak_bg_fill = BG4;
-    v.widgets.active.bg_stroke = Stroke::new(1.0, ACCENT);
-    v.widgets.active.fg_stroke = Stroke::new(1.5, TEXT);
+    v.widgets.active.bg_stroke = Stroke::new(1.0_f32, ACCENT);
+    v.widgets.active.fg_stroke = Stroke::new(1.5_f32, TEXT);
     v.widgets.active.rounding = ROUND;
 
     v.widgets.open.bg_fill = BG3;
     v.widgets.open.weak_bg_fill = BG3;
-    v.widgets.open.bg_stroke = Stroke::new(1.0, BORDER);
-    v.widgets.open.fg_stroke = Stroke::new(1.0, TEXT);
+    v.widgets.open.bg_stroke = Stroke::new(1.0_f32, BORDER);
+    v.widgets.open.fg_stroke = Stroke::new(1.0_f32, TEXT);
     v.widgets.open.rounding = ROUND;
 
     style.spacing.item_spacing = egui::vec2(8.0, 5.0);
@@ -88,7 +88,7 @@ pub fn apply(ctx: &egui::Context) {
 pub fn accent_button(ui: &mut egui::Ui, label: &str) -> egui::Response {
     let fill = if ui.is_enabled() { ACCENT_DIM } else { BG4 };
     let text = egui::RichText::new(label).size(13.0).strong().color(BG_DEEP);
-    ui.add(egui::Button::new(text).fill(fill).stroke(Stroke::new(1.0, ACCENT)))
+    ui.add(egui::Button::new(text).fill(fill).stroke(Stroke::new(1.0_f32, ACCENT)))
 }
 
 /// Destructive action button: transparent fill, danger outline — `.btn.danger`.
@@ -97,6 +97,6 @@ pub fn danger_button(ui: &mut egui::Ui, label: &str) -> egui::Response {
     ui.add(
         egui::Button::new(text)
             .fill(Color32::TRANSPARENT)
-            .stroke(Stroke::new(1.0, DANGER)),
+            .stroke(Stroke::new(1.0_f32, DANGER)),
     )
 }

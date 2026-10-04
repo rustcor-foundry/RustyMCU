@@ -54,7 +54,7 @@ fn draw_ui(
         .frame(
             egui::Frame::none()
                 .fill(theme::BG2)
-                .stroke(egui::Stroke::new(1.0, theme::BORDER_LIGHT)),
+                .stroke(egui::Stroke::new(1.0_f32, theme::BORDER_LIGHT)),
         )
         .show(ctx, |ui| {
             sidebar::draw(ui, &devices, &mut active_tab, &mut port_scanner, &mut net_state);
@@ -108,7 +108,7 @@ fn tab_button(ui: &mut egui::Ui, active: &mut ActiveTab, tab: ActiveTab, label: 
         let y = resp.rect.max.y + 3.0;
         ui.painter().line_segment(
             [egui::pos2(resp.rect.min.x, y), egui::pos2(resp.rect.max.x, y)],
-            egui::Stroke::new(2.0, theme::ACCENT),
+            egui::Stroke::new(2.0_f32, theme::ACCENT),
         );
     }
 }
